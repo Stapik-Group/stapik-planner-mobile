@@ -1,4 +1,4 @@
-package pl.stapik.stapikplanner
+package pl.stapik.planner
 
 import org.junit.Test
 
