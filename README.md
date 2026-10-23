@@ -11,9 +11,10 @@ A read-only mobile companion to [Stapik Planner](https://github.com/Stapik-Group
 - **Day load bar** – shows how loaded each day is (activity difficulty adds up to a 0–100%+ load, same formula as the desktop app)
 - **Cloud sync (read-only)** – fetches the weekly plan from the Stapik Cloud compatible self-hosted API
 - **Offline cache** – automatically caches the last retrieved plan so you can view it without internet access
-- **Themes** – Classic, Classic Pink and Modern, matching the desktop app
+- **Themes** – Classic, Classic Pink, Modern, Dark and Neoclassic, matching the desktop app
 - **Pull-to-refresh** – drag down to fetch the latest data on demand
 - **Encrypted connection config** – server URL and API key are encrypted with a key held in the Android Keystore before being stored on device
+- **End-to-end encryption** – an optional passphrase reads cloud data that the desktop app encrypted (`stapik-e2e`)
 - **Multilingual UI** – Polish, English and German, following the phone's system language
 - **Retro aesthetic** – same raised-button, blue-navbar, grey-cell look as the desktop app
 
@@ -33,7 +34,17 @@ Unlike Stapik Calendar's companion app, this app has **no notifications** and **
 Requires [Android Studio](https://developer.android.com/studio) (Kotlin, Jetpack Compose).
 
 ```
-git clone https://github.com/Stapik-Group/stapik-planner-mobile
+git clone --recurse-submodules https://github.com/Stapik-Group/stapik-planner-mobile
+```
+
+The app uses the shared library [stapik-common-mobile](https://github.com/Stapik-Group/stapik-common-mobile) as a git submodule in `libs/stapik-common-mobile`, pinned to a release tag. After a plain clone run `git submodule update --init`.
+
+The library is built together with the app, so it needs the Android SDK location too: either set `ANDROID_HOME`, or copy `local.properties` into `libs/stapik-common-mobile/`.
+
+To work on the library next to the app, put its path in `~/.gradle/gradle.properties`:
+
+```
+stapikCommonMobileDir=/path/to/stapik-common-mobile
 ```
 
 Open the project folder in Android Studio, let Gradle sync, then build/run via the green Run button or:
@@ -43,6 +54,8 @@ Open the project folder in Android Studio, let Gradle sync, then build/run via t
 ```
 
 The resulting APK is at `app/build/outputs/apk/debug/app-debug.apk`.
+
+Pull requests from `develop` to `master` are built and tested by GitHub Actions; a `v*` tag builds a signed release APK (secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
 
 ## Installation
 
@@ -60,7 +73,7 @@ Or transfer the APK to the device and open it directly (requires allowing instal
 
 ## Cloud Sync
 
-On first launch, open the settings menu (gear icon, bottom right) – **Connect**, and enter the same server URL and API key configured on the desktop app (**File – Connect** there).
+On first launch, open the settings menu (gear icon, bottom right) – **Connect**, and enter the same server URL and API key configured on the desktop app (**File – Connect** there). If the desktop app encrypts the cloud data end to end, enter its passphrase as well.
 
 The app fetches `planner.json` from the server on startup, whenever you return to the plan screen after connecting, and whenever you pull to refresh. The sync API is fully compatible with **Stapik Cloud**.
 

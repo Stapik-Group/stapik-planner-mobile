@@ -3,8 +3,6 @@ package pl.stapik.planner.ui.plan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,7 +15,6 @@ import pl.stapik.planner.data.model.WeekdayMapping
 import pl.stapik.planner.data.repository.MissingConfigException
 import pl.stapik.planner.data.repository.PlannerFetchOutcome
 import pl.stapik.planner.data.repository.PlannerRepository
-import retrofit2.HttpException
 
 class PlanViewModel(
     private val repository: PlannerRepository,
@@ -65,14 +62,7 @@ class PlanViewModel(
 
     private fun mapError(error: Throwable): PlanUiState = when (error) {
         is MissingConfigException -> PlanUiState.NotConfigured
-        is UnknownHostException, is SocketTimeoutException ->
-            PlanUiState.Error(PlanLoadError.NoNetwork)
-        is HttpException -> when (error.code()) {
-            401, 403 -> PlanUiState.Error(PlanLoadError.Unauthorized)
-            404 -> PlanUiState.Error(PlanLoadError.NotFound)
-            else -> PlanUiState.Error(PlanLoadError.Unknown(error.message()))
-        }
-        else -> PlanUiState.Error(PlanLoadError.Unknown(error.message ?: "Unknown error"))
+        else -> PlanUiState.Error(error.toPlanLoadError())
     }
 }
 

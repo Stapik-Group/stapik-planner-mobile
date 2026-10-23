@@ -4,14 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.remember
-import pl.stapik.planner.data.config.DataStoreApiConfigStorage
+import pl.stapik.common.cloud.HttpCloudGateway
+import pl.stapik.common.cloud.OkHttpTransport
+import pl.stapik.common.presentation.ConnectController
+import pl.stapik.planner.data.config.ConnectionApiConfigStorage
 import pl.stapik.planner.data.theme.DataStoreThemeStorage
 import pl.stapik.planner.ui.root.AppRoot
-import pl.stapik.planner.ui.theme.RetroColors
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,19 +18,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val apiConfigStorage = remember {
-                DataStoreApiConfigStorage(
+                ConnectionApiConfigStorage(
                     applicationContext
                 )
             }
+            val transport = remember { OkHttpTransport() }
             val themeStorage = remember {
                 DataStoreThemeStorage(
                     applicationContext
                 )
             }
 
-            Surface(modifier = Modifier.fillMaxSize(), color = RetroColors.WindowBackground) {
-                AppRoot(apiConfigStorage = apiConfigStorage, themeStorage = themeStorage)
-            }
+            AppRoot(
+                apiConfigStorage = apiConfigStorage,
+                themeStorage = themeStorage,
+                transport = transport,
+                newConnectController = { initial ->
+                    ConnectController(apiConfigStorage.store, { config -> HttpCloudGateway(config, transport) }, initial)
+                }
+            )
         }
     }
 }
