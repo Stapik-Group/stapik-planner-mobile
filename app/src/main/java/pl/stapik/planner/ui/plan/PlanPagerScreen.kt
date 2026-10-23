@@ -28,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import pl.stapik.common.cloud.HttpTransport
+import pl.stapik.common.i18n.Messages
 import pl.stapik.planner.R
 import pl.stapik.planner.data.cache.DataStorePlannerCacheStorage
 import pl.stapik.planner.data.config.ApiConfigStorage
@@ -39,6 +41,7 @@ import pl.stapik.planner.ui.theme.retroBevel
 @Composable
 fun PlanPagerScreen(
     apiConfigStorage: ApiConfigStorage,
+    transport: HttpTransport,
     onNavigateToConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -48,7 +51,8 @@ fun PlanPagerScreen(
             PlanViewModelFactory(
                 repository = PlannerRepository(
                     apiConfigStorage = apiConfigStorage,
-                    cacheStorage = DataStorePlannerCacheStorage(context.applicationContext)
+                    cacheStorage = DataStorePlannerCacheStorage(context.applicationContext),
+                    transport = transport
                 ),
                 todayChecksStorage = DataStoreTodayChecksStorage(context.applicationContext)
             )
@@ -105,6 +109,7 @@ fun PlanPagerScreen(
                         PlanLoadError.NoNetwork -> stringResource(R.string.error_no_network)
                         PlanLoadError.Unauthorized -> stringResource(R.string.error_unauthorized)
                         PlanLoadError.NotFound -> stringResource(R.string.error_not_found)
+                        is PlanLoadError.Unreadable -> Messages.text(context, error.messageKey)
                         is PlanLoadError.Unknown -> stringResource(R.string.error_unknown, error.message)
                     }
                     CenteredMessageWithAction(

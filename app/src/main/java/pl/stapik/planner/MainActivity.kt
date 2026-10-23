@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.remember
+import pl.stapik.common.cloud.OkHttpTransport
 import pl.stapik.planner.data.config.ConnectionApiConfigStorage
 import pl.stapik.planner.data.theme.DataStoreThemeStorage
 import pl.stapik.planner.ui.root.AppRoot
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
                     applicationContext
                 )
             }
+            val transport = remember { OkHttpTransport() }
             val themeStorage = remember {
                 DataStoreThemeStorage(
                     applicationContext
@@ -30,7 +32,7 @@ class MainActivity : ComponentActivity() {
             }
 
             Surface(modifier = Modifier.fillMaxSize(), color = RetroColors.WindowBackground) {
-                AppRoot(apiConfigStorage = apiConfigStorage, themeStorage = themeStorage)
+                AppRoot(apiConfigStorage = apiConfigStorage, themeStorage = themeStorage, transport = transport)
             }
         }
     }

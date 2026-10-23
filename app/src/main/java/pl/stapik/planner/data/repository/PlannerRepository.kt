@@ -1,30 +1,51 @@
 package pl.stapik.planner.data.repository
 
 import kotlinx.serialization.json.Json
+import pl.stapik.common.cloud.CloudConfig
+import pl.stapik.common.cloud.HttpCloudGateway
+import pl.stapik.common.cloud.HttpTransport
+import pl.stapik.common.cloud.OkHttpTransport
+import pl.stapik.common.model.SlotKey
+import pl.stapik.common.sync.CloudGateway
 import pl.stapik.planner.data.cache.PlannerCacheStorage
+import pl.stapik.planner.data.config.ApiConfig
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.model.PlannerPayload
 import pl.stapik.planner.data.model.PlannerSyncEnvelope
-import pl.stapik.planner.data.network.NetworkModule
 
 class MissingConfigException : Exception("API connection not configured")
 
+/** The server answered, but it has no planner document in its slot. */
+class PlannerNotFoundException : Exception("No planner document on the server")
+
 data class PlannerFetchResult(
     val payload: PlannerPayload,
-    val updatedAt: String // ISO-8601 from DocumentResponse.updatedAt - authoritative timestamp
+    val updatedAt: String // ISO-8601 from RemoteDocument.updatedAt - authoritative timestamp
 )
 
 class PlannerRepository(
     private val apiConfigStorage: ApiConfigStorage,
-    private val cacheStorage: PlannerCacheStorage
+    private val cacheStorage: PlannerCacheStorage,
+    private val transport: HttpTransport = OkHttpTransport()
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+
+    // The gateway keeps the derived end-to-end key, which is slow to compute, so it is reused
+    // for as long as the configuration stays the same.
+    private var gateway: Pair<ApiConfig, CloudGateway>? = null
+
+    @Synchronized
+    private fun gatewayFor(config: ApiConfig): CloudGateway {
+        gateway?.let { (known, ready) -> if (known == config) return ready }
+        val created = HttpCloudGateway(CloudConfig(config.baseUrl, config.apiKey, config.passphrase), transport)
+        gateway = config to created
+        return created
+    }
 
     suspend fun fetchPlan(): PlannerFetchOutcome {
         val networkResult = runCatching {
             val config = apiConfigStorage.load() ?: throw MissingConfigException()
-            val api = NetworkModule.createApi(baseUrl = config.baseUrl)
-            val document = api.getDocument(slotKey = SLOT_KEY, apiKey = config.apiKey)
+            val document = gatewayFor(config).read(SlotKey(SLOT_KEY)) ?: throw PlannerNotFoundException()
             val syncEnvelope = json.decodeFromString<PlannerSyncEnvelope>(document.content)
             PlannerFetchResult(payload = syncEnvelope.payload, updatedAt = document.updatedAt)
         }

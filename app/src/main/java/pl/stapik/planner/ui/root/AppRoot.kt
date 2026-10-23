@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import pl.stapik.common.cloud.HttpTransport
 import pl.stapik.planner.R
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.theme.ThemeStorage
@@ -24,6 +25,7 @@ import pl.stapik.planner.ui.theme.ThemeScreen
 fun AppRoot(
     apiConfigStorage: ApiConfigStorage,
     themeStorage: ThemeStorage,
+    transport: HttpTransport,
     modifier: Modifier = Modifier
 ) {
     val currentTheme by themeStorage.theme.collectAsState(initial = AppTheme.CLASSIC)
@@ -73,6 +75,7 @@ fun AppRoot(
                 when (screen) {
                     AppScreen.Plan -> PlanPagerScreen(
                         apiConfigStorage = apiConfigStorage,
+                        transport = transport,
                         onNavigateToConnect = { screen = AppScreen.Connect }
                     )
                     AppScreen.Connect -> ConnectScreen(storage = apiConfigStorage, onBack = { screen = AppScreen.Plan })
