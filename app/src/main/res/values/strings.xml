@@ -13,7 +13,7 @@
     <string name="about_author_label">Author</string>
     <string name="about_github_label">View on GitHub</string>
     <string name="not_configured_message">No connection configured yet.</string>
-    <string name="not_configured_button">Go to Connect</string>
+    <string name="not_configured_button">Open settings</string>
     <string name="error_no_network">No network connection.</string>
     <string name="error_unauthorized">Invalid server URL or API key.</string>
     <string name="error_not_found">Planner not found on the server. Check your connection settings.</string>
