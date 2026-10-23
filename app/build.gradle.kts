@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.core.settings)
     implementation(libs.core.sync)
     implementation(libs.core.theme)
+    implementation(libs.ui.components)
     implementation(libs.ui.shell)
     implementation(libs.ui.theme)
 

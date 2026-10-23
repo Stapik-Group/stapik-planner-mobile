@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import pl.stapik.common.cloud.HttpTransport
+import pl.stapik.common.theme.ThemeId
+import pl.stapik.common.ui.theme.StapikTheme
 import pl.stapik.planner.R
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.theme.ThemeStorage
@@ -16,9 +18,8 @@ import pl.stapik.planner.ui.about.AboutScreen
 import pl.stapik.planner.ui.connect.ConnectScreen
 import pl.stapik.planner.ui.navigation.AppScreen
 import pl.stapik.planner.ui.plan.PlanPagerScreen
-import pl.stapik.planner.ui.theme.AppTheme
 import pl.stapik.planner.ui.theme.LocalThemeColors
-import pl.stapik.planner.ui.theme.ThemePalettes
+import pl.stapik.planner.ui.theme.SystemBarsAppearance
 import pl.stapik.planner.ui.theme.ThemeScreen
 
 @Composable
@@ -28,11 +29,10 @@ fun AppRoot(
     transport: HttpTransport,
     modifier: Modifier = Modifier
 ) {
-    val currentTheme by themeStorage.theme.collectAsState(initial = AppTheme.CLASSIC)
+    val currentTheme by themeStorage.theme.collectAsState(initial = ThemeId.CLASSIC)
 
-    CompositionLocalProvider(
-        LocalThemeColors provides ThemePalettes.forTheme(currentTheme)
-    ) {
+    StapikTheme(currentTheme) {
+        SystemBarsAppearance(darkTheme = StapikTheme.colors.isDark)
         val themeColors = LocalThemeColors.current
         var screen by remember { mutableStateOf<AppScreen>(AppScreen.Plan) }
         var menuExpanded by remember { mutableStateOf(false) }

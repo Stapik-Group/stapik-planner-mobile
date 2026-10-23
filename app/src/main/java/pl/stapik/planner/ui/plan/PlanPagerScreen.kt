@@ -36,7 +36,7 @@ import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.localstate.DataStoreTodayChecksStorage
 import pl.stapik.planner.data.repository.PlannerRepository
 import pl.stapik.planner.ui.theme.LocalThemeColors
-import pl.stapik.planner.ui.theme.retroBevel
+import pl.stapik.planner.ui.theme.themedSurface
 
 @Composable
 fun PlanPagerScreen(
@@ -183,8 +183,7 @@ private fun CenteredMessageWithAction(
             Spacer(modifier = Modifier.height(12.dp))
             Box(
                 modifier = Modifier
-                    .background(themeColors.cellBackground)
-                    .retroBevel(raised = true)
+                    .themedSurface(themeColors = themeColors, backgroundColor = themeColors.cellBackground, raised = true)
                     .clickable(onClick = onAction)
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
