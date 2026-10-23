@@ -1,19 +1,15 @@
 package pl.stapik.planner.ui.root
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import pl.stapik.planner.R
 import pl.stapik.planner.data.config.ApiConfigStorage
-import pl.stapik.planner.data.config.ApiSchemaGuard
 import pl.stapik.planner.data.theme.ThemeStorage
 import pl.stapik.planner.ui.about.AboutScreen
 import pl.stapik.planner.ui.connect.ConnectScreen
@@ -21,7 +17,6 @@ import pl.stapik.planner.ui.navigation.AppScreen
 import pl.stapik.planner.ui.plan.PlanPagerScreen
 import pl.stapik.planner.ui.theme.AppTheme
 import pl.stapik.planner.ui.theme.LocalThemeColors
-import pl.stapik.planner.ui.theme.RetroColors
 import pl.stapik.planner.ui.theme.ThemePalettes
 import pl.stapik.planner.ui.theme.ThemeScreen
 
@@ -31,28 +26,7 @@ fun AppRoot(
     themeStorage: ThemeStorage,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val apiSchemaGuard = remember { ApiSchemaGuard(context.applicationContext, apiConfigStorage) }
-    var schemaChecked by remember { mutableStateOf(false) }
     val currentTheme by themeStorage.theme.collectAsState(initial = AppTheme.CLASSIC)
-
-    // Must run before any screen reads the stored config, otherwise a stale
-    // pre-migration config could be used against the new API and fail with a
-    // confusing raw network error instead of a clean redirect to Connect.
-    LaunchedEffect(Unit) {
-        apiSchemaGuard.ensureCurrentSchema()
-        schemaChecked = true
-    }
-
-    if (!schemaChecked) {
-        Box(
-            modifier = modifier.fillMaxSize().background(RetroColors.WindowBackground),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = RetroColors.TextDark)
-        }
-        return
-    }
 
     CompositionLocalProvider(
         LocalThemeColors provides ThemePalettes.forTheme(currentTheme)
