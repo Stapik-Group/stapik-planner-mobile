@@ -1,6 +1,7 @@
 package pl.stapik.planner.ui.plan
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,7 +26,8 @@ fun SlotRow(
     showCheckbox: Boolean,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     val themeColors = LocalThemeColors.current
 
@@ -33,6 +35,7 @@ fun SlotRow(
         modifier = modifier
             .fillMaxWidth()
             .background(themeColors.cellBackgroundSecondary)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -68,7 +71,7 @@ fun SlotRow(
 }
 
 @Composable
-private fun difficultyLabel(difficulty: Difficulty): String = when (difficulty) {
+internal fun difficultyLabel(difficulty: Difficulty): String = when (difficulty) {
     Difficulty.LIGHT -> stringResource(R.string.difficulty_light)
     Difficulty.NORMAL -> stringResource(R.string.difficulty_normal)
     Difficulty.MEDIUM -> stringResource(R.string.difficulty_medium)

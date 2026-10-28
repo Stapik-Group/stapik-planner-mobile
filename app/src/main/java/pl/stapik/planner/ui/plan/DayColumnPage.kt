@@ -24,8 +24,10 @@ fun DayColumnPage(
     daySlots: DaySlotsWire?,
     slotsPerDay: Int,
     isToday: Boolean,
+    isEditing: Boolean,
     todayChecked: Set<Int>,
     onToggleCheck: (slotIndex: Int, checked: Boolean) -> Unit,
+    onSlotClick: (slotIndex: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val themeColors = LocalThemeColors.current
@@ -38,7 +40,7 @@ fun DayColumnPage(
     Column(modifier = modifier.fillMaxSize()) {
         DayLoadBar(loadPercent = loadPercent)
 
-        if (isToday) {
+        if (isToday && !isEditing) {
             Text(
                 text = stringResource(R.string.local_check_hint),
                 color = themeColors.textMuted,
@@ -51,9 +53,10 @@ fun DayColumnPage(
                 Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
                     SlotRow(
                         activity = slots[index],
-                        showCheckbox = isToday,
+                        showCheckbox = isToday && !isEditing,
                         checked = index in todayChecked,
-                        onCheckedChange = { checked -> onToggleCheck(index, checked) }
+                        onCheckedChange = { checked -> onToggleCheck(index, checked) },
+                        onClick = if (isEditing) ({ onSlotClick(index) }) else null
                     )
                 }
             }

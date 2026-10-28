@@ -3,6 +3,7 @@ package pl.stapik.planner.ui.plan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
 import java.time.ZonedDateTime
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pl.stapik.common.presentation.DocumentController
 import pl.stapik.common.presentation.DocumentUiState
@@ -27,6 +29,9 @@ import pl.stapik.common.sync.SyncEngine
 import pl.stapik.common.sync.SyncOutcome
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.document.PlannerDocument
+import pl.stapik.planner.data.edit.EditHistory
+import pl.stapik.planner.data.edit.EditResult
+import pl.stapik.planner.data.edit.PlannerEdits
 import pl.stapik.planner.data.localstate.TodayChecksStorage
 import pl.stapik.planner.data.model.ActivityDef
 import pl.stapik.planner.data.model.PlannerPayload
@@ -41,6 +46,10 @@ class PlanViewModel(
     val uiState: StateFlow<PlanUiState> = _uiState.asStateFlow()
 
     val syncState: StateFlow<SyncUiState> = controller.sync
+
+    private val history = EditHistory<PlannerPayload>()
+    private val _edit = MutableStateFlow(EditUiState())
+    val editState: StateFlow<EditUiState> = _edit.asStateFlow()
 
     private val _sourceChoice = MutableStateFlow<SourceChoice?>(null)
     val sourceChoice: StateFlow<SourceChoice?> = _sourceChoice.asStateFlow()
@@ -109,6 +118,27 @@ class PlanViewModel(
         }
     }
 
+    fun toggleEditing() {
+        history.clear()
+        _edit.update { EditUiState(isEditing = !it.isEditing) }
+    }
+
+    fun dismissEditNotice() {
+        _edit.update { it.copy(notice = null) }
+    }
+
+    fun assignSlot(weekday: DayOfWeek, slotIndex: Int, activityId: String?) {
+        applyEdit { payload -> PlannerEdits.assign(payload, weekday, slotIndex, activityId) }
+    }
+
+    fun undo() {
+        stepHistory { current -> history.undo(current) }
+    }
+
+    fun redo() {
+        stepHistory { current -> history.redo(current) }
+    }
+
     fun dismissNotice() {
         viewModelScope.launch { guarded { controller.dismissResolvedNotice() } }
     }
@@ -123,6 +153,43 @@ class PlanViewModel(
 
     private fun slotsOf(state: PlanUiState, date: LocalDate): List<ActivityDef?> =
         (state as? PlanUiState.Success)?.daysByWeekday?.get(date.dayOfWeek)?.slots.orEmpty()
+
+    private fun applyEdit(operation: (PlannerPayload) -> EditResult) {
+        viewModelScope.launch {
+            val shown = controller.document.value as? DocumentUiState.Success ?: return@launch
+            when (operation(shown.value)) {
+                is EditResult.Applied -> commitEdit(operation)
+                EditResult.LoadLimitExceeded -> _edit.update { it.copy(notice = EditNotice.LOAD_LIMIT) }
+                else -> Unit
+            }
+        }
+    }
+
+    private suspend fun commitEdit(operation: (PlannerPayload) -> EditResult) {
+        guarded {
+            var before: PlannerPayload? = null
+            val outcome = controller.edit { latest ->
+                before = latest
+                (operation(latest) as? EditResult.Applied)?.payload ?: latest
+            }
+            before?.let { history.record(it) }
+            afterEdit(outcome)
+        }
+    }
+
+    private fun stepHistory(move: (PlannerPayload) -> PlannerPayload?) {
+        viewModelScope.launch {
+            val shown = controller.document.value as? DocumentUiState.Success ?: return@launch
+            val target = move(shown.value) ?: return@launch
+            guarded { afterEdit(controller.edit { target }) }
+        }
+    }
+
+    private fun afterEdit(outcome: SyncOutcome) {
+        askForSourceIfNeeded(outcome)
+        _edit.update { it.copy(canUndo = history.canUndo, canRedo = history.canRedo, notice = null) }
+        publish(synced = true)
+    }
 
     private fun askForSourceIfNeeded(outcome: SyncOutcome) {
         if (outcome is SyncOutcome.NeedsFirstConnectionChoice) {
@@ -155,6 +222,7 @@ class PlanViewModel(
 
     private fun PlannerPayload.toSuccessState() = PlanUiState.Success(
         slotsPerDay = settings.supportedSlots,
+        activities = activities.filter { !it.id.isNullOrBlank() },
         daysByWeekday = weekPlan
             .mapNotNull { day -> WeekdayMapping.fromWireValue(day.weekday)?.let { it to day } }
             .toMap()

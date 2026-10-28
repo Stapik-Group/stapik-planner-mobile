@@ -11,4 +11,12 @@
     <string name="difficulty_medium">Średnia</string>
     <string name="difficulty_hard">Ciężka</string>
     <string name="local_check_hint">Odhaczenia są zapisywane tylko na tym urządzeniu i nie są synchronizowane z chmurą.</string>
+    <string name="edit_start">Edytuj</string>
+    <string name="edit_done">Gotowe</string>
+    <string name="edit_undo">Cofnij</string>
+    <string name="edit_redo">Ponów</string>
+    <string name="edit_pick_title">Wybierz aktywność</string>
+    <string name="edit_clear_slot">Wyczyść slot</string>
+    <string name="edit_no_activities">Brak aktywności.</string>
+    <string name="edit_load_limit">To przekroczyłoby %1$d%% obciążenia dnia.</string>
 </resources>

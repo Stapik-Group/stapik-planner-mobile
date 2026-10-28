@@ -11,9 +11,13 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -22,13 +26,19 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import pl.stapik.common.i18n.Messages
 import pl.stapik.common.presentation.SyncAction
+import pl.stapik.common.ui.components.BannerAction
+import pl.stapik.common.ui.components.StapikBanner
 import pl.stapik.common.ui.sync.FirstConnectionDialog
 import pl.stapik.common.ui.sync.LoadErrorMessage
 import pl.stapik.common.ui.sync.SyncStatusBanner
+import pl.stapik.common.ui.theme.StapikTheme
 import pl.stapik.planner.R
+import pl.stapik.planner.data.edit.PlannerEdits
 import pl.stapik.planner.ui.theme.LocalThemeColors
 import pl.stapik.planner.util.AppInfo
 
@@ -43,6 +53,9 @@ fun PlanPagerScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val syncState by viewModel.syncState.collectAsStateWithLifecycle()
     val sourceChoice by viewModel.sourceChoice.collectAsStateWithLifecycle()
+    val editState by viewModel.editState.collectAsStateWithLifecycle()
+    var pickerTarget by remember { mutableStateOf<SlotTarget?>(null) }
+    val context = LocalContext.current
     val todayChecked by viewModel.todayChecked.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = DayPaging.initialPageFor(LocalDate.now())) { DayPaging.PAGE_COUNT }
     val coroutineScope = rememberCoroutineScope()
@@ -92,6 +105,22 @@ fun PlanPagerScreen(
             )
         }
 
+        if (state is PlanUiState.Success) {
+            EditBar(
+                state = editState,
+                onToggleEditing = viewModel::toggleEditing,
+                onUndo = viewModel::undo,
+                onRedo = viewModel::redo
+            )
+            if (editState.notice == EditNotice.LOAD_LIMIT) {
+                StapikBanner(
+                    text = stringResource(R.string.edit_load_limit, PlannerEdits.LOAD_LIMIT),
+                    dotColor = StapikTheme.colors.syncConflict,
+                    actions = listOf(BannerAction(Messages.text(context, "action.dismiss"), viewModel::dismissEditNotice))
+                )
+            }
+        }
+
         val isRefreshing = (state as? PlanUiState.Success)?.isRefreshing ?: false
 
         PullToRefreshBox(
@@ -116,14 +145,30 @@ fun PlanPagerScreen(
                                 daySlots = current.daysByWeekday[pageDayOfWeek],
                                 slotsPerDay = current.slotsPerDay,
                                 isToday = pageDayOfWeek == today.dayOfWeek,
+                                isEditing = editState.isEditing,
                                 todayChecked = todayChecked,
-                                onToggleCheck = viewModel::toggleTodayCheck
+                                onToggleCheck = viewModel::toggleTodayCheck,
+                                onSlotClick = { slotIndex -> pickerTarget = SlotTarget(pageDayOfWeek, slotIndex) }
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    val target = pickerTarget
+    val shown = state as? PlanUiState.Success
+    if (target != null && shown != null) {
+        ActivityPickerDialog(
+            activities = shown.activities,
+            current = shown.daysByWeekday[target.weekday]?.slots?.getOrNull(target.slotIndex),
+            onPick = { activityId ->
+                viewModel.assignSlot(target.weekday, target.slotIndex, activityId)
+                pickerTarget = null
+            },
+            onDismiss = { pickerTarget = null }
+        )
     }
 
     sourceChoice?.let { choice ->
@@ -134,6 +179,8 @@ fun PlanPagerScreen(
         )
     }
 }
+
+private data class SlotTarget(val weekday: DayOfWeek, val slotIndex: Int)
 
 @Composable
 private fun CenteredMessage(text: String, modifier: Modifier = Modifier) {
