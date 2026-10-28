@@ -5,12 +5,7 @@
     <string name="settings">Einstellungen</string>
     <string name="not_configured_message">Keine Verbindung konfiguriert.</string>
     <string name="not_configured_button">Einstellungen öffnen</string>
-    <string name="error_no_network">Keine Netzwerkverbindung.</string>
-    <string name="error_unauthorized">Ungültige Server-URL oder API-Schlüssel.</string>
     <string name="error_not_found">Plan wurde auf dem Server nicht gefunden. Überprüfe die Verbindungseinstellungen.</string>
-    <string name="error_unknown">Etwas ist schiefgelaufen: %1$s</string>
-    <string name="retry">Erneut versuchen</string>
-    <string name="cached_data_banner">Zeige zwischengespeicherte Daten vom %1$s</string>
     <string name="empty_slot">Leer</string>
     <string name="day_load_label">Auslastung: %1$d%%</string>
     <string name="today_label">Heute</string>

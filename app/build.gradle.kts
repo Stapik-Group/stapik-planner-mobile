@@ -85,6 +85,7 @@ dependencies {
     implementation(libs.core.theme)
     implementation(libs.ui.components)
     implementation(libs.ui.shell)
+    implementation(libs.ui.sync)
     implementation(libs.ui.theme)
 
     testImplementation(libs.junit)

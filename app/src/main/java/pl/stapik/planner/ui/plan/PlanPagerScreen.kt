@@ -20,7 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,10 +29,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
-import pl.stapik.common.i18n.Messages
+import pl.stapik.common.presentation.SyncAction
+import pl.stapik.common.presentation.isQuiet
+import pl.stapik.common.ui.sync.LoadErrorMessage
+import pl.stapik.common.ui.sync.SyncStatusBanner
 import pl.stapik.planner.R
 import pl.stapik.planner.ui.theme.LocalThemeColors
 import pl.stapik.planner.ui.theme.themedSurface
+import pl.stapik.planner.util.AppInfo
 
 @Composable
 fun PlanPagerScreen(
@@ -40,9 +44,10 @@ fun PlanPagerScreen(
     onNavigateToConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val viewModel: PlanViewModel = viewModel(factory = viewModelFactory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val syncState by viewModel.syncState.collectAsStateWithLifecycle()
     val todayChecked by viewModel.todayChecked.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = DayPaging.INITIAL_PAGE) { DayPaging.PAGE_COUNT }
     val coroutineScope = rememberCoroutineScope()
@@ -72,6 +77,20 @@ fun PlanPagerScreen(
             }
         )
 
+        if (state is PlanUiState.Success || state is PlanUiState.Empty) {
+            SyncStatusBanner(
+                state = syncState,
+                onAction = { action ->
+                    when (action) {
+                        SyncAction.RETRY, SyncAction.CHOOSE_SOURCE -> viewModel.refresh()
+                        SyncAction.DISMISS -> viewModel.dismissNotice()
+                        SyncAction.RECONNECT, SyncAction.ENTER_PASSPHRASE -> onNavigateToConnect()
+                        SyncAction.UPDATE_APP -> uriHandler.openUri(AppInfo.RELEASES_URL)
+                    }
+                }
+            )
+        }
+
         val isRefreshing = (state as? PlanUiState.Success)?.isRefreshing ?: false
 
         PullToRefreshBox(
@@ -88,34 +107,20 @@ fun PlanPagerScreen(
                     onAction = onNavigateToConnect
                 )
 
-                is PlanUiState.Error -> {
-                    val message = when (val error = current.error) {
-                        PlanLoadError.NoNetwork -> stringResource(R.string.error_no_network)
-                        PlanLoadError.Unauthorized -> stringResource(R.string.error_unauthorized)
-                        PlanLoadError.NotFound -> stringResource(R.string.error_not_found)
-                        is PlanLoadError.Unreadable -> Messages.text(context, error.messageKey)
-                        is PlanLoadError.Unknown -> stringResource(R.string.error_unknown, error.message)
+                is PlanUiState.Empty ->
+                    if (syncState.isQuiet) {
+                        CenteredMessage(stringResource(R.string.error_not_found))
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize())
                     }
-                    CenteredMessageWithAction(
-                        message = message,
-                        actionLabel = stringResource(R.string.retry),
-                        onAction = viewModel::refresh
-                    )
-                }
+
+                is PlanUiState.Error -> LoadErrorMessage(
+                    kind = current.kind,
+                    onDiscardLocal = viewModel::discardLocalAndResync
+                )
 
                 is PlanUiState.Success -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        if (current.isStale) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().background(themeColors.cellBackground).padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    stringResource(R.string.cached_data_banner, formatCachedTimestamp(current.updatedAt)),
-                                    color = themeColors.textDark
-                                )
-                            }
-                        }
                         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                             val pageDayOfWeek = DayPaging.pageToDayOfWeek(page)
                             DayColumnPage(
@@ -132,17 +137,6 @@ fun PlanPagerScreen(
             }
         }
     }
-}
-
-private fun formatCachedTimestamp(updatedAt: String?): String {
-    if (updatedAt == null) return ""
-    return runCatching {
-        val instant = java.time.Instant.parse(updatedAt)
-        java.time.format.DateTimeFormatter
-            .ofLocalizedDateTime(java.time.format.FormatStyle.SHORT)
-            .withZone(java.time.ZoneId.systemDefault())
-            .format(instant)
-    }.getOrDefault(updatedAt)
 }
 
 @Composable

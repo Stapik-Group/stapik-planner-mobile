@@ -15,11 +15,10 @@ import pl.stapik.planner.data.cache.LegacyPlannerCache
 import pl.stapik.planner.data.cloud.CloudGatewayProvider
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.config.ConnectionApiConfigStorage
-import pl.stapik.planner.data.document.LegacyCacheMigration
+import pl.stapik.planner.data.document.MigratingDocumentStore
 import pl.stapik.planner.data.document.PlannerDocument
 import pl.stapik.planner.data.localstate.DataStoreTodayChecksStorage
 import pl.stapik.planner.data.model.PlannerPayload
-import pl.stapik.planner.data.repository.PlannerRepository
 import pl.stapik.planner.data.theme.DataStoreThemeStorage
 import pl.stapik.planner.data.theme.ThemeStorage
 import pl.stapik.planner.ui.plan.PlanViewModelFactory
@@ -31,10 +30,13 @@ class AppContainer(context: Context) {
     private val transport = OkHttpTransport()
     private val gatewayProvider = CloudGatewayProvider(connectionStorage, transport)
 
-    private val documentStore = FileDocumentStore(
-        directory = File(appContext.filesDir, DOCUMENTS_DIRECTORY).toPath(),
-        slot = PlannerDocument.slot,
-        cipher = KeystoreCiphers.create(DOCUMENT_KEY_ALIAS, PlannerDocument.slot.toString().toByteArray())
+    private val documentStore = MigratingDocumentStore(
+        delegate = FileDocumentStore(
+            directory = File(appContext.filesDir, DOCUMENTS_DIRECTORY).toPath(),
+            slot = PlannerDocument.slot,
+            cipher = KeystoreCiphers.create(DOCUMENT_KEY_ALIAS, PlannerDocument.slot.toString().toByteArray())
+        ),
+        legacyCache = LegacyPlannerCache(appContext)
     )
 
     private val plannerEngine = SyncEngine<PlannerPayload>(
@@ -49,15 +51,9 @@ class AppContainer(context: Context) {
 
     val themeStorage: ThemeStorage = DataStoreThemeStorage(appContext)
 
-    private val plannerRepository = PlannerRepository(
-        apiConfigStorage = connectionStorage,
-        engine = plannerEngine,
-        store = documentStore,
-        legacyMigration = LegacyCacheMigration(LegacyPlannerCache(appContext), documentStore)
-    )
-
     val planViewModelFactory: ViewModelProvider.Factory = PlanViewModelFactory(
-        repository = plannerRepository,
+        engine = plannerEngine,
+        apiConfigStorage = connectionStorage,
         todayChecksStorage = DataStoreTodayChecksStorage(appContext)
     )
 

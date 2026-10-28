@@ -4,39 +4,69 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import pl.stapik.common.presentation.DocumentController
+import pl.stapik.common.presentation.DocumentUiState
+import pl.stapik.common.presentation.LoadErrorKind
+import pl.stapik.common.presentation.SyncUiState
+import pl.stapik.common.sync.FirstConnectionChoice
+import pl.stapik.common.sync.SyncEngine
+import pl.stapik.planner.data.config.ApiConfigStorage
+import pl.stapik.planner.data.document.PlannerDocument
 import pl.stapik.planner.data.localstate.TodayChecksStorage
+import pl.stapik.planner.data.model.PlannerPayload
 import pl.stapik.planner.data.model.WeekdayMapping
-import pl.stapik.planner.data.repository.MissingConfigException
-import pl.stapik.planner.data.repository.PlannerFetchOutcome
-import pl.stapik.planner.data.repository.PlannerFetchResult
-import pl.stapik.planner.data.repository.PlannerRepository
 
 class PlanViewModel(
-    private val repository: PlannerRepository,
+    private val controller: DocumentController<PlannerPayload>,
+    private val isConnected: suspend () -> Boolean,
     private val todayChecksStorage: TodayChecksStorage
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<PlanUiState>(PlanUiState.Loading)
     val uiState: StateFlow<PlanUiState> = _uiState.asStateFlow()
+
+    val syncState: StateFlow<SyncUiState> = controller.sync
 
     val todayChecked: StateFlow<Set<Int>> = todayChecksStorage.observeChecked(LocalDate.now())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun refresh() {
         viewModelScope.launch {
-            val currentSuccess = _uiState.value as? PlanUiState.Success
-            _uiState.value = currentSuccess?.copy(isRefreshing = true) ?: PlanUiState.Loading
-            _uiState.value = when (val outcome = repository.fetchPlan()) {
-                is PlannerFetchOutcome.Fresh -> outcome.result.toSuccessState(isStale = false)
-                is PlannerFetchOutcome.Cached -> outcome.result.toSuccessState(isStale = true)
-                is PlannerFetchOutcome.Failure -> mapError(outcome.cause)
+            if (!isConnected()) {
+                _uiState.value = PlanUiState.NotConfigured
+                return@launch
+            }
+            val shown = _uiState.value as? PlanUiState.Success
+            _uiState.value = shown?.copy(isRefreshing = true) ?: PlanUiState.Loading
+            guarded {
+                controller.load()
+                publish(synced = false)
+                if (controller.document.value is DocumentUiState.Success) {
+                    controller.sync(FirstConnectionChoice.USE_CLOUD)
+                }
+                publish(synced = true)
             }
         }
+    }
+
+    fun discardLocalAndResync() {
+        viewModelScope.launch {
+            _uiState.value = PlanUiState.Loading
+            guarded {
+                controller.discardLocalAndResync()
+                publish(synced = true)
+            }
+        }
+    }
+
+    fun dismissNotice() {
+        viewModelScope.launch { guarded { controller.dismissResolvedNotice() } }
     }
 
     fun toggleTodayCheck(slotIndex: Int, checked: Boolean) {
@@ -45,24 +75,43 @@ class PlanViewModel(
         }
     }
 
-    private fun PlannerFetchResult.toSuccessState(isStale: Boolean) = PlanUiState.Success(
-        slotsPerDay = payload.settings.slots,
-        daysByWeekday = payload.weekPlan.associateBy { WeekdayMapping.fromWireValue(it.weekday) },
-        isStale = isStale,
-        updatedAt = updatedAt
-    )
-
-    private fun mapError(error: Throwable): PlanUiState = when (error) {
-        is MissingConfigException -> PlanUiState.NotConfigured
-        else -> PlanUiState.Error(error.toPlanLoadError())
+    private suspend fun guarded(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _uiState.value = PlanUiState.Error(LoadErrorKind.UNKNOWN)
+        }
     }
+
+    private fun publish(synced: Boolean) {
+        _uiState.value = when (val document = controller.document.value) {
+            DocumentUiState.Loading -> PlanUiState.Loading
+            is DocumentUiState.Error -> PlanUiState.Error(document.kind)
+            is DocumentUiState.Success -> when {
+                !PlannerDocument.codec.isEmpty(document.value) -> document.value.toSuccessState()
+                synced -> PlanUiState.Empty
+                else -> PlanUiState.Loading
+            }
+        }
+    }
+
+    private fun PlannerPayload.toSuccessState() = PlanUiState.Success(
+        slotsPerDay = settings.slots,
+        daysByWeekday = weekPlan.associateBy { WeekdayMapping.fromWireValue(it.weekday) }
+    )
 }
 
 class PlanViewModelFactory(
-    private val repository: PlannerRepository,
+    private val engine: SyncEngine<PlannerPayload>,
+    private val apiConfigStorage: ApiConfigStorage,
     private val todayChecksStorage: TodayChecksStorage
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T =
-        PlanViewModel(repository, todayChecksStorage) as T
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        val connected: suspend () -> Boolean = { apiConfigStorage.load() != null }
+        val controller = DocumentController(engine = engine, connected = connected)
+        return PlanViewModel(controller, connected, todayChecksStorage) as T
+    }
 }

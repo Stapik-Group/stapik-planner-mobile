@@ -5,12 +5,7 @@
     <string name="settings">Ustawienia</string>
     <string name="not_configured_message">Brak skonfigurowanego połączenia.</string>
     <string name="not_configured_button">Otwórz ustawienia</string>
-    <string name="error_no_network">Brak połączenia z siecią.</string>
-    <string name="error_unauthorized">Nieprawidłowy adres serwera lub klucz API.</string>
     <string name="error_not_found">Nie znaleziono planu na serwerze. Sprawdź ustawienia połączenia.</string>
-    <string name="error_unknown">Coś poszło nie tak: %1$s</string>
-    <string name="retry">Spróbuj ponownie</string>
-    <string name="cached_data_banner">Wyświetlam dane z cache z %1$s</string>
     <string name="empty_slot">Puste</string>
     <string name="day_load_label">Obciążenie: %1$d%%</string>
     <string name="today_label">Dziś</string>
