@@ -9,6 +9,7 @@ import pl.stapik.common.cloud.HttpCloudGateway
 import pl.stapik.common.cloud.OkHttpTransport
 import pl.stapik.common.crypto.KeystoreCiphers
 import pl.stapik.common.document.FileDocumentStore
+import pl.stapik.common.document.MobileOnlyStore
 import pl.stapik.common.presentation.ConnectController
 import pl.stapik.common.sync.SyncEngine
 import pl.stapik.planner.data.cache.LegacyPlannerCache
@@ -17,9 +18,13 @@ import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.config.ConnectionApiConfigStorage
 import pl.stapik.planner.data.document.MigratingDocumentStore
 import pl.stapik.planner.data.document.PlannerDocument
-import pl.stapik.planner.data.localstate.DataStoreTodayChecksStorage
+import pl.stapik.planner.data.localstate.LegacyTodayChecks
+import pl.stapik.planner.data.localstate.MobileOnlyTodayChecksStorage
+import pl.stapik.planner.data.localstate.TodayChecks
 import pl.stapik.planner.data.model.PlannerPayload
-import pl.stapik.planner.data.theme.DataStoreThemeStorage
+import pl.stapik.planner.data.theme.LegacyThemeSource
+import pl.stapik.planner.data.theme.MobileOnlyThemeStorage
+import pl.stapik.planner.data.theme.ThemePreference
 import pl.stapik.planner.data.theme.ThemeStorage
 import pl.stapik.planner.ui.plan.PlanViewModelFactory
 
@@ -49,12 +54,20 @@ class AppContainer(context: Context) {
 
     val apiConfigStorage: ApiConfigStorage = connectionStorage
 
-    val themeStorage: ThemeStorage = DataStoreThemeStorage(appContext)
+    private val mobileOnlyDirectory = File(appContext.filesDir, MOBILE_ONLY_DIRECTORY).toPath()
+
+    val themeStorage: ThemeStorage = MobileOnlyThemeStorage(
+        store = MobileOnlyStore(mobileOnlyDirectory, "theme", ThemePreference.serializer(), ThemePreference()),
+        legacy = LegacyThemeSource(appContext)
+    )
 
     val planViewModelFactory: ViewModelProvider.Factory = PlanViewModelFactory(
         engine = plannerEngine,
         apiConfigStorage = connectionStorage,
-        todayChecksStorage = DataStoreTodayChecksStorage(appContext)
+        todayChecksStorage = MobileOnlyTodayChecksStorage(
+            store = MobileOnlyStore(mobileOnlyDirectory, "today-checks", TodayChecks.serializer(), TodayChecks()),
+            legacy = LegacyTodayChecks(appContext)
+        )
     )
 
     fun newConnectController(initial: CloudConfig?): ConnectController =
@@ -67,6 +80,7 @@ class AppContainer(context: Context) {
 
     private companion object {
         const val DOCUMENTS_DIRECTORY = "stapik/documents"
+        const val MOBILE_ONLY_DIRECTORY = "stapik/mobile"
         const val DOCUMENT_KEY_ALIAS = "stapikplanner_document_key"
     }
 }
