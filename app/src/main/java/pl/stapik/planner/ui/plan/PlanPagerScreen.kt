@@ -57,10 +57,11 @@ fun PlanPagerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val themeColors = LocalThemeColors.current
 
-    LaunchedEffect(Unit) { viewModel.refresh() }
-
     LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.trackToday() }
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            launch { viewModel.trackToday() }
+            viewModel.refresh()
+        }
     }
 
     Column(modifier = modifier.fillMaxSize().background(themeColors.windowBackground)) {
