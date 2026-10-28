@@ -8,6 +8,7 @@ import pl.stapik.common.cloud.OkHttpTransport
 import pl.stapik.common.model.SlotKey
 import pl.stapik.common.sync.CloudGateway
 import pl.stapik.planner.data.cache.PlannerCacheStorage
+import pl.stapik.planner.data.cloud.ReadOnlyCloudGateway
 import pl.stapik.planner.data.config.ApiConfig
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.model.PlannerPayload
@@ -37,7 +38,9 @@ class PlannerRepository(
     @Synchronized
     private fun gatewayFor(config: ApiConfig): CloudGateway {
         gateway?.let { (known, ready) -> if (known == config) return ready }
-        val created = HttpCloudGateway(CloudConfig(config.baseUrl, config.apiKey, config.passphrase), transport)
+        val created = ReadOnlyCloudGateway(
+            HttpCloudGateway(CloudConfig(config.baseUrl, config.apiKey, config.passphrase), transport)
+        )
         gateway = config to created
         return created
     }
