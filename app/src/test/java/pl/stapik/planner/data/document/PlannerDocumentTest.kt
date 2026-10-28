@@ -2,6 +2,9 @@ package pl.stapik.planner.data.document
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -46,6 +49,35 @@ class PlannerDocumentTest {
         val payload = PlannerDocument.codec.decode(DocumentEnvelope.parse(document))
 
         assertFalse(PlannerDocument.codec.isEmpty(payload))
+    }
+
+    @Test
+    fun encodingOmitsMissingIdsAndMissingLastUpdate() {
+        val payload = PlannerPayload(activities = listOf(ActivityDef(name = "Run", difficulty = "hard")))
+
+        val encoded = PlannerDocument.codec.encode(payload, DocumentEnvelope.empty(""), "2026-10-27T08:00:00Z")
+
+        assertFalse(encoded.payload.containsKey("lastUpdate"))
+        val activity = (encoded.payload["activities"] as JsonArray).single() as JsonObject
+        assertFalse(activity.containsKey("id"))
+    }
+
+    @Test
+    fun encodingWritesTheLastUpdateOfThePayload() {
+        val payload = PlannerPayload(lastUpdate = "2026-10-27T08:00:00Z")
+
+        val encoded = PlannerDocument.codec.encode(payload, DocumentEnvelope.empty(""), "2026-10-27T08:00:00Z")
+
+        assertEquals(JsonPrimitive("2026-10-27T08:00:00Z"), encoded.payload["lastUpdate"])
+    }
+
+    @Test
+    fun decodesTheLastUpdateOfThePayload() {
+        val text = """{"lastUpdate":"2026-10-26T08:00:00Z","payload":{"lastUpdate":"2026-10-26T07:00:00Z","settings":{"slots":3}}}"""
+
+        val payload = PlannerDocument.codec.decode(DocumentEnvelope.parse(text))
+
+        assertEquals("2026-10-26T07:00:00Z", payload.lastUpdate)
     }
 
     @Test

@@ -16,7 +16,7 @@ import pl.stapik.planner.data.cache.LegacyPlannerCache
 import pl.stapik.planner.data.cloud.CloudGatewayProvider
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.config.ConnectionApiConfigStorage
-import pl.stapik.planner.data.document.MigratingDocumentStore
+import pl.stapik.planner.data.document.LegacyCacheCleanupStore
 import pl.stapik.planner.data.document.PlannerDocument
 import pl.stapik.planner.data.localstate.LegacyTodayChecks
 import pl.stapik.planner.data.localstate.MobileOnlyTodayChecksStorage
@@ -35,7 +35,9 @@ class AppContainer(context: Context) {
     private val transport = OkHttpTransport()
     private val gatewayProvider = CloudGatewayProvider(connectionStorage, transport)
 
-    private val documentStore = MigratingDocumentStore(
+    private val clock = Clock.systemUTC()
+
+    private val documentStore = LegacyCacheCleanupStore(
         delegate = FileDocumentStore(
             directory = File(appContext.filesDir, DOCUMENTS_DIRECTORY).toPath(),
             slot = PlannerDocument.slot,
@@ -49,7 +51,7 @@ class AppContainer(context: Context) {
         codec = PlannerDocument.codec,
         store = documentStore,
         cloudProvider = { gatewayProvider.current() },
-        clock = Clock.systemUTC()
+        clock = clock
     )
 
     val apiConfigStorage: ApiConfigStorage = connectionStorage
@@ -67,7 +69,8 @@ class AppContainer(context: Context) {
         todayChecksStorage = MobileOnlyTodayChecksStorage(
             store = MobileOnlyStore(mobileOnlyDirectory, "today-checks", TodayChecks.serializer(), TodayChecks()),
             legacy = LegacyTodayChecks(appContext)
-        )
+        ),
+        clock = clock
     )
 
     fun newConnectController(initial: CloudConfig?): ConnectController =

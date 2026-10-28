@@ -1,6 +1,8 @@
 package pl.stapik.planner.data.edit
 
 import java.time.DayOfWeek
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import pl.stapik.planner.data.model.ActivityDef
 import pl.stapik.planner.data.model.DaySlotsWire
 import pl.stapik.planner.data.model.Difficulty
@@ -11,6 +13,9 @@ import pl.stapik.planner.data.model.WeekdayMapping
 object PlannerEdits {
     const val LOAD_LIMIT = 100
     const val MAX_NAME_LENGTH = 60
+
+    fun stamped(payload: PlannerPayload, now: Instant): PlannerPayload =
+        payload.copy(lastUpdate = now.truncatedTo(ChronoUnit.SECONDS).toString())
 
     fun loadOf(day: DaySlotsWire): Int =
         day.slots.sumOf { slot -> slot?.let { Difficulty.fromWireValue(it.difficulty).loadPercent } ?: 0 }

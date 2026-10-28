@@ -1,6 +1,7 @@
 package pl.stapik.planner.data.edit
 
 import java.time.DayOfWeek
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -32,6 +33,13 @@ class PlannerEditsTest {
 
     private fun PlannerPayload.day(weekday: DayOfWeek): DaySlotsWire =
         weekPlan.first { it.weekday == weekday.name.lowercase() }
+
+    @Test
+    fun stampedPayloadCarriesTheEditTimeInWholeSeconds() {
+        val stamped = PlannerEdits.stamped(payload(), Instant.parse("2026-10-28T18:30:45.987654Z"))
+
+        assertEquals("2026-10-28T18:30:45Z", stamped.lastUpdate)
+    }
 
     @Test
     fun normalizedPayloadHasTheFullWeekInDesktopOrder() {

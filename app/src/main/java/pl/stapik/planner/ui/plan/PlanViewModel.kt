@@ -3,6 +3,7 @@ package pl.stapik.planner.ui.plan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
@@ -40,7 +41,8 @@ import pl.stapik.planner.data.model.WeekdayMapping
 
 class PlanViewModel(
     private val controller: DocumentController<PlannerPayload>,
-    private val todayChecksStorage: TodayChecksStorage
+    private val todayChecksStorage: TodayChecksStorage,
+    private val clock: Clock
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<PlanUiState>(PlanUiState.Loading)
     val uiState: StateFlow<PlanUiState> = _uiState.asStateFlow()
@@ -171,11 +173,16 @@ class PlanViewModel(
             val preview = if (shown == null) EditResult.Unavailable else operation(shown.value)
             if (preview is EditResult.Applied) {
                 guarded {
-                    afterEdit(controller.edit { latest -> (operation(latest) as? EditResult.Applied)?.payload ?: latest })
+                    afterEdit(controller.edit { latest -> editedFrom(latest, operation) })
                 }
             }
             onResult(preview)
         }
+    }
+
+    private fun editedFrom(latest: PlannerPayload, operation: (PlannerPayload) -> EditResult): PlannerPayload {
+        val applied = operation(latest) as? EditResult.Applied ?: return latest
+        return PlannerEdits.stamped(applied.payload, clock.instant())
     }
 
     private fun afterEdit(outcome: SyncOutcome) {
@@ -227,11 +234,12 @@ class PlanViewModel(
 class PlanViewModelFactory(
     private val engine: SyncEngine<PlannerPayload>,
     private val apiConfigStorage: ApiConfigStorage,
-    private val todayChecksStorage: TodayChecksStorage
+    private val todayChecksStorage: TodayChecksStorage,
+    private val clock: Clock
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val controller = DocumentController(engine = engine, connected = { apiConfigStorage.load() != null })
-        return PlanViewModel(controller, todayChecksStorage) as T
+        return PlanViewModel(controller, todayChecksStorage, clock) as T
     }
 }
