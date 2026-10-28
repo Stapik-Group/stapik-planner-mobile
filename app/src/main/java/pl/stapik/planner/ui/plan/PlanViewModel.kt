@@ -135,7 +135,9 @@ class PlanViewModel(
 
     private fun PlannerPayload.toSuccessState() = PlanUiState.Success(
         slotsPerDay = settings.supportedSlots,
-        daysByWeekday = weekPlan.associateBy { WeekdayMapping.fromWireValue(it.weekday) }
+        daysByWeekday = weekPlan
+            .mapNotNull { day -> WeekdayMapping.fromWireValue(day.weekday)?.let { it to day } }
+            .toMap()
     )
 }
 
