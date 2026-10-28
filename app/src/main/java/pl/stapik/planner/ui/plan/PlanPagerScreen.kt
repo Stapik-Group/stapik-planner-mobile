@@ -16,7 +16,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,8 +23,11 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
@@ -49,12 +51,17 @@ fun PlanPagerScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val syncState by viewModel.syncState.collectAsStateWithLifecycle()
     val todayChecked by viewModel.todayChecked.collectAsStateWithLifecycle()
-    val pagerState = rememberPagerState(initialPage = DayPaging.INITIAL_PAGE) { DayPaging.PAGE_COUNT }
+    val pagerState = rememberPagerState(initialPage = DayPaging.initialPageFor(LocalDate.now())) { DayPaging.PAGE_COUNT }
     val coroutineScope = rememberCoroutineScope()
-    val today = remember { LocalDate.now() }
+    val today by viewModel.today.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val themeColors = LocalThemeColors.current
 
     LaunchedEffect(Unit) { viewModel.refresh() }
+
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.trackToday() }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(themeColors.windowBackground)) {
         val currentDayOfWeek = DayPaging.pageToDayOfWeek(pagerState.currentPage)

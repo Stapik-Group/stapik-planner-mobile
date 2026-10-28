@@ -3,12 +3,17 @@ package pl.stapik.planner.ui.plan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.time.Duration
 import java.time.LocalDate
+import java.time.ZonedDateTime
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pl.stapik.common.presentation.DocumentController
@@ -33,8 +38,22 @@ class PlanViewModel(
 
     val syncState: StateFlow<SyncUiState> = controller.sync
 
-    val todayChecked: StateFlow<Set<Int>> = todayChecksStorage.observeChecked(LocalDate.now())
+    private val _today = MutableStateFlow(LocalDate.now())
+    val today: StateFlow<LocalDate> = _today.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val todayChecked: StateFlow<Set<Int>> = _today
+        .flatMapLatest { date -> todayChecksStorage.observeChecked(date) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    suspend fun trackToday() {
+        while (true) {
+            val now = ZonedDateTime.now()
+            _today.value = now.toLocalDate()
+            val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)
+            delay(Duration.between(now, nextMidnight).toMillis())
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -71,7 +90,7 @@ class PlanViewModel(
 
     fun toggleTodayCheck(slotIndex: Int, checked: Boolean) {
         viewModelScope.launch {
-            todayChecksStorage.setChecked(date = LocalDate.now(), slotIndex = slotIndex, checked = checked)
+            todayChecksStorage.setChecked(date = _today.value, slotIndex = slotIndex, checked = checked)
         }
     }
 
