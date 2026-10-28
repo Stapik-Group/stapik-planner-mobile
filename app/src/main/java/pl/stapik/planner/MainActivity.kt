@@ -34,7 +34,12 @@ class MainActivity : ComponentActivity() {
                 themeStorage = themeStorage,
                 transport = transport,
                 newConnectController = { initial ->
-                    ConnectController(apiConfigStorage.store, { config -> HttpCloudGateway(config, transport) }, initial)
+                    ConnectController(
+                        store = apiConfigStorage.store,
+                        gatewayFactory = { config -> HttpCloudGateway(config, transport) },
+                        documents = emptyList(),
+                        initial = initial
+                    )
                 }
             )
         }
