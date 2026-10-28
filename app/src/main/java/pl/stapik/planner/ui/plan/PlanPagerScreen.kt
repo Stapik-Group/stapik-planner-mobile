@@ -24,40 +24,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
-import pl.stapik.common.cloud.HttpTransport
 import pl.stapik.common.i18n.Messages
 import pl.stapik.planner.R
-import pl.stapik.planner.data.cache.DataStorePlannerCacheStorage
-import pl.stapik.planner.data.config.ApiConfigStorage
-import pl.stapik.planner.data.localstate.DataStoreTodayChecksStorage
-import pl.stapik.planner.data.repository.PlannerRepository
 import pl.stapik.planner.ui.theme.LocalThemeColors
 import pl.stapik.planner.ui.theme.themedSurface
 
 @Composable
 fun PlanPagerScreen(
-    apiConfigStorage: ApiConfigStorage,
-    transport: HttpTransport,
+    viewModelFactory: ViewModelProvider.Factory,
     onNavigateToConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val viewModel: PlanViewModel = viewModel(
-        factory = remember {
-            PlanViewModelFactory(
-                repository = PlannerRepository(
-                    apiConfigStorage = apiConfigStorage,
-                    cacheStorage = DataStorePlannerCacheStorage(context.applicationContext),
-                    transport = transport
-                ),
-                todayChecksStorage = DataStoreTodayChecksStorage(context.applicationContext)
-            )
-        }
-    )
+    val viewModel: PlanViewModel = viewModel(factory = viewModelFactory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val todayChecked by viewModel.todayChecked.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = DayPaging.INITIAL_PAGE) { DayPaging.PAGE_COUNT }

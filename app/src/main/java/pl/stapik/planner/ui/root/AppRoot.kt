@@ -9,8 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 import pl.stapik.common.cloud.CloudConfig
-import pl.stapik.common.cloud.HttpTransport
-import pl.stapik.common.presentation.ConnectController
 import pl.stapik.common.theme.ThemeId
 import pl.stapik.common.ui.shell.AppDefinition
 import pl.stapik.common.ui.shell.SettingsFlow
@@ -18,8 +16,7 @@ import pl.stapik.common.ui.theme.StapikTheme
 import pl.stapik.planner.BuildConfig
 import pl.stapik.planner.R
 import pl.stapik.planner.data.config.ApiConfig
-import pl.stapik.planner.data.config.ApiConfigStorage
-import pl.stapik.planner.data.theme.ThemeStorage
+import pl.stapik.planner.di.AppContainer
 import pl.stapik.planner.ui.navigation.AppScreen
 import pl.stapik.planner.ui.plan.PlanPagerScreen
 import pl.stapik.planner.ui.theme.LocalThemeColors
@@ -34,18 +31,13 @@ private val appDefinition = AppDefinition(
     websiteUrl = AppInfo.GITHUB_URL
 )
 
-/**
- * @param newConnectController builds the controller of the connect form, prefilled with the saved
- *   connection; called each time the settings are opened.
- */
 @Composable
 fun AppRoot(
-    apiConfigStorage: ApiConfigStorage,
-    themeStorage: ThemeStorage,
-    transport: HttpTransport,
-    newConnectController: (CloudConfig?) -> ConnectController,
+    container: AppContainer,
     modifier: Modifier = Modifier
 ) {
+    val apiConfigStorage = container.apiConfigStorage
+    val themeStorage = container.themeStorage
     val currentTheme by themeStorage.theme.collectAsState(initial = ThemeId.CLASSIC)
 
     StapikTheme(currentTheme) {
@@ -78,13 +70,12 @@ fun AppRoot(
             Box(modifier = Modifier.padding(innerPadding)) {
                 when (screen) {
                     AppScreen.Plan -> PlanPagerScreen(
-                        apiConfigStorage = apiConfigStorage,
-                        transport = transport,
+                        viewModelFactory = container.planViewModelFactory,
                         onNavigateToConnect = { screen = AppScreen.Settings }
                     )
                     AppScreen.Settings -> {
                         val connectController = remember {
-                            newConnectController(savedConfig?.let { CloudConfig(it.baseUrl, it.apiKey, it.passphrase) })
+                            container.newConnectController(savedConfig?.let { CloudConfig(it.baseUrl, it.apiKey, it.passphrase) })
                         }
                         // The shared screens draw their own header under the status bar; the navigation bar
                         // and the keyboard are left to this padding.
