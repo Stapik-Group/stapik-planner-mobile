@@ -108,9 +108,7 @@ fun PlanPagerScreen(
         if (state is PlanUiState.Success) {
             EditBar(
                 state = editState,
-                onToggleEditing = viewModel::toggleEditing,
-                onUndo = viewModel::undo,
-                onRedo = viewModel::redo
+                onToggleEditing = viewModel::toggleEditing
             )
             if (editState.notice == EditNotice.LOAD_LIMIT) {
                 StapikBanner(

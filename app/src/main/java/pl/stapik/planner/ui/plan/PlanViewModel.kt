@@ -29,7 +29,6 @@ import pl.stapik.common.sync.SyncEngine
 import pl.stapik.common.sync.SyncOutcome
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.document.PlannerDocument
-import pl.stapik.planner.data.edit.EditHistory
 import pl.stapik.planner.data.edit.EditResult
 import pl.stapik.planner.data.edit.PlannerEdits
 import pl.stapik.planner.data.localstate.TodayChecksStorage
@@ -47,7 +46,6 @@ class PlanViewModel(
 
     val syncState: StateFlow<SyncUiState> = controller.sync
 
-    private val history = EditHistory<PlannerPayload>()
     private val _edit = MutableStateFlow(EditUiState())
     val editState: StateFlow<EditUiState> = _edit.asStateFlow()
 
@@ -119,7 +117,6 @@ class PlanViewModel(
     }
 
     fun toggleEditing() {
-        history.clear()
         _edit.update { EditUiState(isEditing = !it.isEditing) }
     }
 
@@ -129,14 +126,6 @@ class PlanViewModel(
 
     fun assignSlot(weekday: DayOfWeek, slotIndex: Int, activityId: String?) {
         applyEdit { payload -> PlannerEdits.assign(payload, weekday, slotIndex, activityId) }
-    }
-
-    fun undo() {
-        stepHistory { current -> history.undo(current) }
-    }
-
-    fun redo() {
-        stepHistory { current -> history.redo(current) }
     }
 
     fun dismissNotice() {
@@ -167,27 +156,13 @@ class PlanViewModel(
 
     private suspend fun commitEdit(operation: (PlannerPayload) -> EditResult) {
         guarded {
-            var before: PlannerPayload? = null
-            val outcome = controller.edit { latest ->
-                before = latest
-                (operation(latest) as? EditResult.Applied)?.payload ?: latest
-            }
-            before?.let { history.record(it) }
-            afterEdit(outcome)
-        }
-    }
-
-    private fun stepHistory(move: (PlannerPayload) -> PlannerPayload?) {
-        viewModelScope.launch {
-            val shown = controller.document.value as? DocumentUiState.Success ?: return@launch
-            val target = move(shown.value) ?: return@launch
-            guarded { afterEdit(controller.edit { target }) }
+            afterEdit(controller.edit { latest -> (operation(latest) as? EditResult.Applied)?.payload ?: latest })
         }
     }
 
     private fun afterEdit(outcome: SyncOutcome) {
         askForSourceIfNeeded(outcome)
-        _edit.update { it.copy(canUndo = history.canUndo, canRedo = history.canRedo, notice = null) }
+        _edit.update { it.copy(notice = null) }
         publish(synced = true)
     }
 

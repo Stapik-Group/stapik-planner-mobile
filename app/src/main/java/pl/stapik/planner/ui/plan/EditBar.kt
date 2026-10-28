@@ -1,6 +1,5 @@
 package pl.stapik.planner.ui.plan
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,22 +14,13 @@ import pl.stapik.planner.R
 fun EditBar(
     state: EditUiState,
     onToggleEditing: () -> Unit,
-    onUndo: () -> Unit,
-    onRedo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
         StapikButton(
             text = stringResource(if (state.isEditing) R.string.edit_done else R.string.edit_start),
             onClick = onToggleEditing,
             emphasized = state.isEditing
         )
-        if (state.isEditing) {
-            StapikButton(text = stringResource(R.string.edit_undo), onClick = onUndo, enabled = state.canUndo)
-            StapikButton(text = stringResource(R.string.edit_redo), onClick = onRedo, enabled = state.canRedo)
-        }
     }
 }

@@ -13,8 +13,6 @@
     <string name="local_check_hint">Häkchen werden nur auf diesem Gerät gespeichert und nicht mit der Cloud synchronisiert.</string>
     <string name="edit_start">Bearbeiten</string>
     <string name="edit_done">Fertig</string>
-    <string name="edit_undo">Rückgängig</string>
-    <string name="edit_redo">Wiederholen</string>
     <string name="edit_pick_title">Aktivität wählen</string>
     <string name="edit_clear_slot">Slot leeren</string>
     <string name="edit_no_activities">Noch keine Aktivitäten.</string>

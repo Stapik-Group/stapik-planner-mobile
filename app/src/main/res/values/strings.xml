@@ -12,8 +12,6 @@
     <string name="local_check_hint">Checkmarks are kept only on this device and are not synced to the cloud.</string>
     <string name="edit_start">Edit</string>
     <string name="edit_done">Done</string>
-    <string name="edit_undo">Undo</string>
-    <string name="edit_redo">Redo</string>
     <string name="edit_pick_title">Choose activity</string>
     <string name="edit_clear_slot">Clear slot</string>
     <string name="edit_no_activities">No activities yet.</string>
