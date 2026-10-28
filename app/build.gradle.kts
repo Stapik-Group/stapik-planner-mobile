@@ -14,8 +14,8 @@ android {
         applicationId = "pl.stapik.planner"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.core.cloud)
     implementation(libs.core.crypto)
+    implementation(libs.core.document)
     implementation(libs.core.i18n)
     implementation(libs.core.model)
     implementation(libs.core.presentation)
@@ -84,6 +85,7 @@ dependencies {
     implementation(libs.core.theme)
     implementation(libs.ui.components)
     implementation(libs.ui.shell)
+    implementation(libs.ui.sync)
     implementation(libs.ui.theme)
 
     testImplementation(libs.junit)

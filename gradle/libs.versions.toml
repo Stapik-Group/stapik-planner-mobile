@@ -19,6 +19,7 @@ foundation = "1.12.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 core-cloud = { module = "pl.stapik.common:core-cloud" }
 core-crypto = { module = "pl.stapik.common:core-crypto" }
+core-document = { module = "pl.stapik.common:core-document" }
 core-i18n = { module = "pl.stapik.common:core-i18n" }
 core-model = { module = "pl.stapik.common:core-model" }
 core-presentation = { module = "pl.stapik.common:core-presentation" }
@@ -48,6 +49,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 ui-components = { module = "pl.stapik.common:ui-components" }
 ui-shell = { module = "pl.stapik.common:ui-shell" }
+ui-sync = { module = "pl.stapik.common:ui-sync" }
 ui-theme = { module = "pl.stapik.common:ui-theme" }
 
 [plugins]

@@ -1,14 +1,9 @@
 package pl.stapik.planner.ui.plan
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
@@ -16,56 +11,64 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.launch
-import pl.stapik.common.cloud.HttpTransport
 import pl.stapik.common.i18n.Messages
+import pl.stapik.common.presentation.SyncAction
+import pl.stapik.common.ui.components.BannerAction
+import pl.stapik.common.ui.components.StapikBanner
+import pl.stapik.common.ui.sync.FirstConnectionDialog
+import pl.stapik.common.ui.sync.LoadErrorMessage
+import pl.stapik.common.ui.sync.SyncStatusBanner
+import pl.stapik.common.ui.theme.StapikTheme
 import pl.stapik.planner.R
-import pl.stapik.planner.data.cache.DataStorePlannerCacheStorage
-import pl.stapik.planner.data.config.ApiConfigStorage
-import pl.stapik.planner.data.localstate.DataStoreTodayChecksStorage
-import pl.stapik.planner.data.repository.PlannerRepository
+import pl.stapik.planner.data.edit.PlannerEdits
 import pl.stapik.planner.ui.theme.LocalThemeColors
-import pl.stapik.planner.ui.theme.themedSurface
+import pl.stapik.planner.util.AppInfo
 
 @Composable
 fun PlanPagerScreen(
-    apiConfigStorage: ApiConfigStorage,
-    transport: HttpTransport,
+    viewModelFactory: ViewModelProvider.Factory,
     onNavigateToConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val viewModel: PlanViewModel = viewModel(
-        factory = remember {
-            PlanViewModelFactory(
-                repository = PlannerRepository(
-                    apiConfigStorage = apiConfigStorage,
-                    cacheStorage = DataStorePlannerCacheStorage(context.applicationContext),
-                    transport = transport
-                ),
-                todayChecksStorage = DataStoreTodayChecksStorage(context.applicationContext)
-            )
-        }
-    )
+    val uriHandler = LocalUriHandler.current
+    val viewModel: PlanViewModel = viewModel(factory = viewModelFactory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val syncState by viewModel.syncState.collectAsStateWithLifecycle()
+    val sourceChoice by viewModel.sourceChoice.collectAsStateWithLifecycle()
+    val editState by viewModel.editState.collectAsStateWithLifecycle()
+    var pickerTarget by remember { mutableStateOf<SlotTarget?>(null) }
+    val context = LocalContext.current
     val todayChecked by viewModel.todayChecked.collectAsStateWithLifecycle()
-    val pagerState = rememberPagerState(initialPage = DayPaging.INITIAL_PAGE) { DayPaging.PAGE_COUNT }
+    val pagerState = rememberPagerState(initialPage = DayPaging.initialPageFor(LocalDate.now())) { DayPaging.PAGE_COUNT }
     val coroutineScope = rememberCoroutineScope()
-    val today = remember { LocalDate.now() }
+    val today by viewModel.today.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val themeColors = LocalThemeColors.current
 
-    LaunchedEffect(Unit) { viewModel.refresh() }
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            launch { viewModel.trackToday() }
+            viewModel.refresh()
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(themeColors.windowBackground)) {
         val currentDayOfWeek = DayPaging.pageToDayOfWeek(pagerState.currentPage)
@@ -88,6 +91,34 @@ fun PlanPagerScreen(
             }
         )
 
+        if (state is PlanUiState.Success) {
+            SyncStatusBanner(
+                state = syncState,
+                onAction = { action ->
+                    when (action) {
+                        SyncAction.RETRY, SyncAction.CHOOSE_SOURCE -> viewModel.refresh()
+                        SyncAction.DISMISS -> viewModel.dismissNotice()
+                        SyncAction.RECONNECT, SyncAction.ENTER_PASSPHRASE -> onNavigateToConnect()
+                        SyncAction.UPDATE_APP -> uriHandler.openUri(AppInfo.RELEASES_URL)
+                    }
+                }
+            )
+        }
+
+        if (state is PlanUiState.Success) {
+            EditBar(
+                state = editState,
+                onToggleEditing = viewModel::toggleEditing
+            )
+            if (editState.notice == EditNotice.LOAD_LIMIT) {
+                StapikBanner(
+                    text = stringResource(R.string.edit_load_limit, PlannerEdits.LOAD_LIMIT),
+                    dotColor = StapikTheme.colors.syncConflict,
+                    actions = listOf(BannerAction(Messages.text(context, "action.dismiss"), viewModel::dismissEditNotice))
+                )
+            }
+        }
+
         val isRefreshing = (state as? PlanUiState.Success)?.isRefreshing ?: false
 
         PullToRefreshBox(
@@ -98,40 +129,13 @@ fun PlanPagerScreen(
             when (val current = state) {
                 is PlanUiState.Loading -> CenteredMessage(stringResource(R.string.loading))
 
-                is PlanUiState.NotConfigured -> CenteredMessageWithAction(
-                    message = stringResource(R.string.not_configured_message),
-                    actionLabel = stringResource(R.string.not_configured_button),
-                    onAction = onNavigateToConnect
+                is PlanUiState.Error -> LoadErrorMessage(
+                    kind = current.kind,
+                    onDiscardLocal = viewModel::discardLocalAndResync
                 )
-
-                is PlanUiState.Error -> {
-                    val message = when (val error = current.error) {
-                        PlanLoadError.NoNetwork -> stringResource(R.string.error_no_network)
-                        PlanLoadError.Unauthorized -> stringResource(R.string.error_unauthorized)
-                        PlanLoadError.NotFound -> stringResource(R.string.error_not_found)
-                        is PlanLoadError.Unreadable -> Messages.text(context, error.messageKey)
-                        is PlanLoadError.Unknown -> stringResource(R.string.error_unknown, error.message)
-                    }
-                    CenteredMessageWithAction(
-                        message = message,
-                        actionLabel = stringResource(R.string.retry),
-                        onAction = viewModel::refresh
-                    )
-                }
 
                 is PlanUiState.Success -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        if (current.isStale) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().background(themeColors.cellBackground).padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    stringResource(R.string.cached_data_banner, formatCachedTimestamp(current.updatedAt)),
-                                    color = themeColors.textDark
-                                )
-                            }
-                        }
                         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                             val pageDayOfWeek = DayPaging.pageToDayOfWeek(page)
                             DayColumnPage(
@@ -139,8 +143,10 @@ fun PlanPagerScreen(
                                 daySlots = current.daysByWeekday[pageDayOfWeek],
                                 slotsPerDay = current.slotsPerDay,
                                 isToday = pageDayOfWeek == today.dayOfWeek,
+                                isEditing = editState.isEditing,
                                 todayChecked = todayChecked,
-                                onToggleCheck = viewModel::toggleTodayCheck
+                                onToggleCheck = viewModel::toggleTodayCheck,
+                                onSlotClick = { slotIndex -> pickerTarget = SlotTarget(pageDayOfWeek, slotIndex) }
                             )
                         }
                     }
@@ -148,47 +154,36 @@ fun PlanPagerScreen(
             }
         }
     }
+
+    val target = pickerTarget
+    val shown = state as? PlanUiState.Success
+    if (target != null && shown != null) {
+        ActivityPickerDialog(
+            activities = shown.activities,
+            current = shown.daysByWeekday[target.weekday]?.slots?.getOrNull(target.slotIndex),
+            onPick = { activityId ->
+                viewModel.assignSlot(target.weekday, target.slotIndex, activityId)
+                pickerTarget = null
+            },
+            onDismiss = { pickerTarget = null }
+        )
+    }
+
+    sourceChoice?.let { choice ->
+        FirstConnectionDialog(
+            canKeepLocal = choice.canKeepLocal,
+            onChoose = viewModel::chooseSource,
+            onCancel = viewModel::dismissSourceChoice
+        )
+    }
 }
 
-private fun formatCachedTimestamp(updatedAt: String?): String {
-    if (updatedAt == null) return ""
-    return runCatching {
-        val instant = java.time.Instant.parse(updatedAt)
-        java.time.format.DateTimeFormatter
-            .ofLocalizedDateTime(java.time.format.FormatStyle.SHORT)
-            .withZone(java.time.ZoneId.systemDefault())
-            .format(instant)
-    }.getOrDefault(updatedAt)
-}
+private data class SlotTarget(val weekday: DayOfWeek, val slotIndex: Int)
 
 @Composable
 private fun CenteredMessage(text: String, modifier: Modifier = Modifier) {
     val themeColors = LocalThemeColors.current
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, color = themeColors.textDark)
-    }
-}
-
-@Composable
-private fun CenteredMessageWithAction(
-    message: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val themeColors = LocalThemeColors.current
-    Box(modifier = modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message, color = themeColors.textDark)
-            Spacer(modifier = Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .themedSurface(themeColors = themeColors, backgroundColor = themeColors.cellBackground, raised = true)
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            ) {
-                Text(actionLabel, color = themeColors.textDark, fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }
