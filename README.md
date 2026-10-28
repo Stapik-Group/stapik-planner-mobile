@@ -10,7 +10,7 @@ A read-only mobile companion to [Stapik Planner](https://github.com/Stapik-Group
 - **Local task checkoff** – tick off today's completed slots; kept only on this device (unencrypted local storage), never synced to the cloud, and never affects the source plan on the desktop app
 - **Day load bar** – shows how loaded each day is (activity difficulty adds up to a 0–100%+ load, same formula as the desktop app)
 - **Cloud sync (read-only)** – fetches the weekly plan from the Stapik Cloud compatible self-hosted API
-- **Offline cache** – automatically caches the last retrieved plan so you can view it without internet access
+- **Offline copy** – the last retrieved plan is kept on the device, encrypted with a key held in the Android Keystore (also when the cloud data is end-to-end encrypted), and shown at once on start while it is refreshed in the background
 - **Themes** – Classic, Classic Pink, Modern, Dark and Neoclassic, matching the desktop app
 - **Pull-to-refresh** – drag down to fetch the latest data on demand
 - **Encrypted connection config** – server URL and API key are encrypted with a key held in the Android Keystore before being stored on device
@@ -75,17 +75,18 @@ Or transfer the APK to the device and open it directly (requires allowing instal
 
 On first launch, open the settings menu (gear icon, bottom right) – **Connect**, and enter the same server URL and API key configured on the desktop app (**File – Connect** there). If the desktop app encrypts the cloud data end to end, enter its passphrase as well.
 
-The app fetches `planner.json` from the server on startup, whenever you return to the plan screen after connecting, and whenever you pull to refresh. The sync API is fully compatible with **Stapik Cloud**.
+The app fetches `planner.json` from the server whenever the plan screen comes to the foreground (on start, after connecting, when you return to the app) and whenever you pull to refresh. A banner above the plan tells why the data may be out of date (no connection, rejected key, missing or wrong passphrase). The sync API is fully compatible with **Stapik Cloud**.
 
 Since this app is read-only, there's no write conflict to worry about on the mobile side – all conflict resolution (last-write-wins by timestamp) happens between desktop instances, as described in the [desktop app's README](https://github.com/Stapik-Group/stapik-planner#cloud-sync).
 
 ## Local task checkoff
 
-Ticking a checkbox next to one of today's slots only writes to an on-device DataStore, keyed by date and slot index. It is:
+Ticking a checkbox next to one of today's slots only writes to a file on the device, keyed by date, slot index and the activity planned in that slot. It is:
 
 - **not** sent to the server,
 - **not** part of the synced plan document,
 - automatically irrelevant once the date rolls over (a new day starts with everything unchecked, no reset step needed),
+- hidden when the activity in that slot changes in the plan, so a checkmark never ends up next to a different activity,
 - pruned lazily after a couple of days so the local store doesn't grow forever.
 
 If you want the desktop plan itself to reflect completed tasks, that's out of scope for this app by design — edit it there.
