@@ -16,4 +16,19 @@
     <string name="edit_clear_slot">Clear slot</string>
     <string name="edit_no_activities">No activities yet.</string>
     <string name="edit_load_limit">That would take the day over %1$d%% of the load.</string>
+    <string name="activities_title">Activities</string>
+    <string name="activities_add">Add activity</string>
+    <string name="activity_new_title">New activity</string>
+    <string name="activity_edit_title">Edit activity</string>
+    <string name="activity_name">Name</string>
+    <string name="activity_save">Save</string>
+    <string name="activity_delete">Delete</string>
+    <string name="activity_delete_title">Delete activity?</string>
+    <string name="activity_delete_message">Planned slots using it: %1$d. They will be cleared.</string>
+    <string name="activity_error_name">Enter a name of up to %1$d characters</string>
+    <string name="activity_error_taken">An activity with this name already exists</string>
+    <string name="slots_title">Slots per day</string>
+    <string name="slots_shrink_title">Reduce the slots?</string>
+    <string name="slots_shrink_message">Planned activities in the removed slots: %1$d. They will be lost.</string>
+    <string name="slots_shrink_confirm">Reduce</string>
 </resources>

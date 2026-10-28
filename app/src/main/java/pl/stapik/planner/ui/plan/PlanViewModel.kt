@@ -33,6 +33,7 @@ import pl.stapik.planner.data.edit.EditResult
 import pl.stapik.planner.data.edit.PlannerEdits
 import pl.stapik.planner.data.localstate.TodayChecksStorage
 import pl.stapik.planner.data.model.ActivityDef
+import pl.stapik.planner.data.model.Difficulty
 import pl.stapik.planner.data.model.PlannerPayload
 import pl.stapik.planner.data.model.checkSignature
 import pl.stapik.planner.data.model.WeekdayMapping
@@ -48,6 +49,9 @@ class PlanViewModel(
 
     private val _edit = MutableStateFlow(EditUiState())
     val editState: StateFlow<EditUiState> = _edit.asStateFlow()
+
+    private val _catalog = MutableStateFlow(CatalogUiState())
+    val catalog: StateFlow<CatalogUiState> = _catalog.asStateFlow()
 
     private val _sourceChoice = MutableStateFlow<SourceChoice?>(null)
     val sourceChoice: StateFlow<SourceChoice?> = _sourceChoice.asStateFlow()
@@ -125,7 +129,25 @@ class PlanViewModel(
     }
 
     fun assignSlot(weekday: DayOfWeek, slotIndex: Int, activityId: String?) {
-        applyEdit { payload -> PlannerEdits.assign(payload, weekday, slotIndex, activityId) }
+        perform(operation = { payload -> PlannerEdits.assign(payload, weekday, slotIndex, activityId) }) { result ->
+            if (result == EditResult.LoadLimitExceeded) _edit.update { it.copy(notice = EditNotice.LOAD_LIMIT) }
+        }
+    }
+
+    fun addActivity(name: String, difficulty: Difficulty, onResult: (EditResult) -> Unit) {
+        perform(operation = { payload -> PlannerEdits.addActivity(payload, name, difficulty) }, onResult = onResult)
+    }
+
+    fun updateActivity(id: String, name: String, difficulty: Difficulty, onResult: (EditResult) -> Unit) {
+        perform(operation = { payload -> PlannerEdits.updateActivity(payload, id, name, difficulty) }, onResult = onResult)
+    }
+
+    fun removeActivity(id: String, onResult: (EditResult) -> Unit = {}) {
+        perform(operation = { payload -> PlannerEdits.removeActivity(payload, id) }, onResult = onResult)
+    }
+
+    fun setSlotCount(count: Int, onResult: (EditResult) -> Unit = {}) {
+        perform(operation = { payload -> PlannerEdits.setSlotCount(payload, count) }, onResult = onResult)
     }
 
     fun dismissNotice() {
@@ -143,20 +165,16 @@ class PlanViewModel(
     private fun slotsOf(state: PlanUiState, date: LocalDate): List<ActivityDef?> =
         (state as? PlanUiState.Success)?.daysByWeekday?.get(date.dayOfWeek)?.slots.orEmpty()
 
-    private fun applyEdit(operation: (PlannerPayload) -> EditResult) {
+    private fun perform(operation: (PlannerPayload) -> EditResult, onResult: (EditResult) -> Unit) {
         viewModelScope.launch {
-            val shown = controller.document.value as? DocumentUiState.Success ?: return@launch
-            when (operation(shown.value)) {
-                is EditResult.Applied -> commitEdit(operation)
-                EditResult.LoadLimitExceeded -> _edit.update { it.copy(notice = EditNotice.LOAD_LIMIT) }
-                else -> Unit
+            val shown = controller.document.value as? DocumentUiState.Success
+            val preview = if (shown == null) EditResult.Unavailable else operation(shown.value)
+            if (preview is EditResult.Applied) {
+                guarded {
+                    afterEdit(controller.edit { latest -> (operation(latest) as? EditResult.Applied)?.payload ?: latest })
+                }
             }
-        }
-    }
-
-    private suspend fun commitEdit(operation: (PlannerPayload) -> EditResult) {
-        guarded {
-            afterEdit(controller.edit { latest -> (operation(latest) as? EditResult.Applied)?.payload ?: latest })
+            onResult(preview)
         }
     }
 
@@ -186,12 +204,14 @@ class PlanViewModel(
         _uiState.value = when (val document = controller.document.value) {
             DocumentUiState.Loading -> PlanUiState.Loading
             is DocumentUiState.Error -> PlanUiState.Error(document.kind)
-            is DocumentUiState.Success ->
+            is DocumentUiState.Success -> {
+                _catalog.value = CatalogUiState(document.value)
                 if (synced || !PlannerDocument.codec.isEmpty(document.value)) {
                     document.value.toSuccessState()
                 } else {
                     PlanUiState.Loading
                 }
+            }
         }
     }
 

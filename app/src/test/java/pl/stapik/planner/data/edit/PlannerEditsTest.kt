@@ -209,6 +209,17 @@ class PlannerEditsTest {
     }
 
     @Test
+    fun plannedSlotCountCountsTheActivityAcrossTheWeek() {
+        val first = PlannerEdits.assign(payload(), DayOfWeek.MONDAY, 0, "light", ids).applied()
+        val second = PlannerEdits.assign(first, DayOfWeek.FRIDAY, 2, "light", ids).applied()
+        val third = PlannerEdits.assign(second, DayOfWeek.FRIDAY, 1, "hard", ids).applied()
+
+        assertEquals(2, PlannerEdits.plannedSlotCount(third, "light"))
+        assertEquals(1, PlannerEdits.plannedSlotCount(third, "hard"))
+        assertEquals(0, PlannerEdits.plannedSlotCount(third, "nope"))
+    }
+
+    @Test
     fun slotCountOutsideTheSupportedRangeIsRejected() {
         assertEquals(EditResult.OutOfRange, PlannerEdits.setSlotCount(payload(), 0, ids))
         assertEquals(EditResult.OutOfRange, PlannerEdits.setSlotCount(payload(), 9, ids))

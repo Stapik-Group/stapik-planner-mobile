@@ -104,6 +104,9 @@ object PlannerEdits {
     fun lostAssignments(payload: PlannerPayload, count: Int, ids: IdGenerator = IdGenerator.Secure): Int =
         normalized(payload, ids).weekPlan.sumOf { day -> day.slots.drop(count).count { it != null } }
 
+    fun plannedSlotCount(payload: PlannerPayload, activityId: String): Int =
+        payload.weekPlan.sumOf { day -> day.slots.count { it?.id == activityId } }
+
     private fun dayOf(payload: PlannerPayload, weekday: DayOfWeek): DaySlotsWire {
         val wire = WeekdayMapping.toWireValue(weekday)
         return payload.weekPlan.first { it.weekday == wire }

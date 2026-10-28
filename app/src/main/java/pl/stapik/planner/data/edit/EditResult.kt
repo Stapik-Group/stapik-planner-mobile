@@ -9,4 +9,5 @@ sealed interface EditResult {
     data object NameTaken : EditResult
     data object UnknownActivity : EditResult
     data object OutOfRange : EditResult
+    data object Unavailable : EditResult
 }

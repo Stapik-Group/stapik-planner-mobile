@@ -17,4 +17,19 @@
     <string name="edit_clear_slot">Wyczyść slot</string>
     <string name="edit_no_activities">Brak aktywności.</string>
     <string name="edit_load_limit">To przekroczyłoby %1$d%% obciążenia dnia.</string>
+    <string name="activities_title">Aktywności</string>
+    <string name="activities_add">Dodaj aktywność</string>
+    <string name="activity_new_title">Nowa aktywność</string>
+    <string name="activity_edit_title">Edytuj aktywność</string>
+    <string name="activity_name">Nazwa</string>
+    <string name="activity_save">Zapisz</string>
+    <string name="activity_delete">Usuń</string>
+    <string name="activity_delete_title">Usunąć aktywność?</string>
+    <string name="activity_delete_message">Zaplanowane sloty z tą aktywnością: %1$d. Zostaną wyczyszczone.</string>
+    <string name="activity_error_name">Podaj nazwę do %1$d znaków</string>
+    <string name="activity_error_taken">Aktywność o tej nazwie już istnieje</string>
+    <string name="slots_title">Liczba slotów w dniu</string>
+    <string name="slots_shrink_title">Zmniejszyć liczbę slotów?</string>
+    <string name="slots_shrink_message">Zaplanowane aktywności w usuwanych slotach: %1$d. Zostaną utracone.</string>
+    <string name="slots_shrink_confirm">Zmniejsz</string>
 </resources>
