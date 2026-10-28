@@ -16,15 +16,15 @@ class MobileOnlyTodayChecksStorage(
 ) : TodayChecksStorage {
     private val current = MutableStateFlow<TodayChecks?>(null)
 
-    override fun observeChecked(date: LocalDate): Flow<Set<Int>> =
+    override fun observeChecked(date: LocalDate): Flow<Map<Int, String?>> =
         current.onStart { ensureLoaded() }
             .filterNotNull()
-            .map { it.byDate[date.toString()].orEmpty() }
+            .map { it.on(date) }
             .distinctUntilChanged()
 
-    override suspend fun setChecked(date: LocalDate, slotIndex: Int, checked: Boolean) {
+    override suspend fun setChecked(date: LocalDate, slotIndex: Int, checked: Boolean, signature: String) {
         val cutoff = date.minusDays(RETENTION_DAYS)
-        current.value = store.update { it.with(date, slotIndex, checked).prunedBefore(cutoff) }
+        current.value = store.update { it.with(date, slotIndex, checked, signature).prunedBefore(cutoff) }
     }
 
     private suspend fun ensureLoaded() {

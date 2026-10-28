@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -25,7 +26,9 @@ import pl.stapik.common.sync.SyncEngine
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.document.PlannerDocument
 import pl.stapik.planner.data.localstate.TodayChecksStorage
+import pl.stapik.planner.data.model.ActivityDef
 import pl.stapik.planner.data.model.PlannerPayload
+import pl.stapik.planner.data.model.checkSignature
 import pl.stapik.planner.data.model.WeekdayMapping
 
 class PlanViewModel(
@@ -42,9 +45,14 @@ class PlanViewModel(
     val today: StateFlow<LocalDate> = _today.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val todayChecked: StateFlow<Set<Int>> = _today
-        .flatMapLatest { date -> todayChecksStorage.observeChecked(date) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val todayChecked: StateFlow<Set<Int>> = combine(
+        _today.flatMapLatest { date -> todayChecksStorage.observeChecked(date) },
+        _uiState,
+        _today
+    ) { checked, state, date ->
+        val slots = slotsOf(state, date)
+        checked.filter { (index, signature) -> signature == null || signature == slots.getOrNull(index).checkSignature }.keys
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     suspend fun trackToday() {
         while (true) {
@@ -90,9 +98,14 @@ class PlanViewModel(
 
     fun toggleTodayCheck(slotIndex: Int, checked: Boolean) {
         viewModelScope.launch {
-            todayChecksStorage.setChecked(date = _today.value, slotIndex = slotIndex, checked = checked)
+            val date = _today.value
+            val signature = slotsOf(_uiState.value, date).getOrNull(slotIndex).checkSignature
+            todayChecksStorage.setChecked(date = date, slotIndex = slotIndex, checked = checked, signature = signature)
         }
     }
+
+    private fun slotsOf(state: PlanUiState, date: LocalDate): List<ActivityDef?> =
+        (state as? PlanUiState.Success)?.daysByWeekday?.get(date.dayOfWeek)?.slots.orEmpty()
 
     private suspend fun guarded(block: suspend () -> Unit) {
         try {

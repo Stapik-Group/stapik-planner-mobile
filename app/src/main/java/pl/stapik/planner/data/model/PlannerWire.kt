@@ -5,7 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ActivityDef(
     val name: String,
-    val difficulty: String // "light" | "normal" | "medium" | "hard" — see Difficulty.fromWireValue
+    val difficulty: String, // "light" | "normal" | "medium" | "hard" — see Difficulty.fromWireValue
+    val id: String? = null
 )
 
 @Serializable
