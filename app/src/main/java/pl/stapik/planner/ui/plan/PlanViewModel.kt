@@ -24,6 +24,7 @@ import pl.stapik.common.presentation.LoadErrorKind
 import pl.stapik.common.presentation.SyncUiState
 import pl.stapik.common.sync.FirstConnectionChoice
 import pl.stapik.common.sync.SyncEngine
+import pl.stapik.common.sync.SyncOutcome
 import pl.stapik.planner.data.config.ApiConfigStorage
 import pl.stapik.planner.data.document.PlannerDocument
 import pl.stapik.planner.data.localstate.TodayChecksStorage
@@ -34,13 +35,15 @@ import pl.stapik.planner.data.model.WeekdayMapping
 
 class PlanViewModel(
     private val controller: DocumentController<PlannerPayload>,
-    private val isConnected: suspend () -> Boolean,
     private val todayChecksStorage: TodayChecksStorage
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<PlanUiState>(PlanUiState.Loading)
     val uiState: StateFlow<PlanUiState> = _uiState.asStateFlow()
 
     val syncState: StateFlow<SyncUiState> = controller.sync
+
+    private val _sourceChoice = MutableStateFlow<SourceChoice?>(null)
+    val sourceChoice: StateFlow<SourceChoice?> = _sourceChoice.asStateFlow()
 
     private val _today = MutableStateFlow(LocalDate.now())
     val today: StateFlow<LocalDate> = _today.asStateFlow()
@@ -69,21 +72,31 @@ class PlanViewModel(
     fun refresh() {
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
-            if (!isConnected()) {
-                _uiState.value = PlanUiState.NotConfigured
-                return@launch
-            }
             val shown = _uiState.value as? PlanUiState.Success
             _uiState.value = shown?.copy(isRefreshing = true) ?: PlanUiState.Loading
             guarded {
                 controller.load()
                 publish(synced = false)
                 if (controller.document.value is DocumentUiState.Success) {
-                    controller.sync(FirstConnectionChoice.USE_CLOUD)
+                    askForSourceIfNeeded(controller.sync())
                 }
                 publish(synced = true)
             }
         }
+    }
+
+    fun chooseSource(choice: FirstConnectionChoice) {
+        _sourceChoice.value = null
+        viewModelScope.launch {
+            guarded {
+                askForSourceIfNeeded(controller.sync(choice))
+                publish(synced = true)
+            }
+        }
+    }
+
+    fun dismissSourceChoice() {
+        _sourceChoice.value = null
     }
 
     fun discardLocalAndResync() {
@@ -111,6 +124,12 @@ class PlanViewModel(
     private fun slotsOf(state: PlanUiState, date: LocalDate): List<ActivityDef?> =
         (state as? PlanUiState.Success)?.daysByWeekday?.get(date.dayOfWeek)?.slots.orEmpty()
 
+    private fun askForSourceIfNeeded(outcome: SyncOutcome) {
+        if (outcome is SyncOutcome.NeedsFirstConnectionChoice) {
+            _sourceChoice.value = SourceChoice(outcome.canKeepLocal)
+        }
+    }
+
     private suspend fun guarded(block: suspend () -> Unit) {
         try {
             block()
@@ -125,11 +144,12 @@ class PlanViewModel(
         _uiState.value = when (val document = controller.document.value) {
             DocumentUiState.Loading -> PlanUiState.Loading
             is DocumentUiState.Error -> PlanUiState.Error(document.kind)
-            is DocumentUiState.Success -> when {
-                !PlannerDocument.codec.isEmpty(document.value) -> document.value.toSuccessState()
-                synced -> PlanUiState.Empty
-                else -> PlanUiState.Loading
-            }
+            is DocumentUiState.Success ->
+                if (synced || !PlannerDocument.codec.isEmpty(document.value)) {
+                    document.value.toSuccessState()
+                } else {
+                    PlanUiState.Loading
+                }
         }
     }
 
@@ -148,8 +168,7 @@ class PlanViewModelFactory(
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        val connected: suspend () -> Boolean = { apiConfigStorage.load() != null }
-        val controller = DocumentController(engine = engine, connected = connected)
-        return PlanViewModel(controller, connected, todayChecksStorage) as T
+        val controller = DocumentController(engine = engine, connected = { apiConfigStorage.load() != null })
+        return PlanViewModel(controller, todayChecksStorage) as T
     }
 }

@@ -3,6 +3,8 @@ package pl.stapik.planner.data.model
 import java.time.DayOfWeek
 
 object WeekdayMapping {
+    fun toWireValue(day: DayOfWeek): String = day.name.lowercase()
+
     fun fromWireValue(value: String): DayOfWeek? = when (value) {
         "monday" -> DayOfWeek.MONDAY
         "tuesday" -> DayOfWeek.TUESDAY

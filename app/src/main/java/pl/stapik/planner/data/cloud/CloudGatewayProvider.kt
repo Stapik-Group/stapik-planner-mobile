@@ -18,9 +18,7 @@ class CloudGatewayProvider(
     @Synchronized
     private fun gatewayFor(config: ApiConfig): CloudGateway {
         cached?.let { (known, ready) -> if (known == config) return ready }
-        val created = ReadOnlyCloudGateway(
-            HttpCloudGateway(CloudConfig(config.baseUrl, config.apiKey, config.passphrase), transport)
-        )
+        val created = HttpCloudGateway(CloudConfig(config.baseUrl, config.apiKey, config.passphrase), transport)
         cached = config to created
         return created
     }

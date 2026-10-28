@@ -11,7 +11,5 @@ sealed interface PlanUiState {
         val daysByWeekday: Map<DayOfWeek, DaySlotsWire>,
         val isRefreshing: Boolean = false
     ) : PlanUiState
-    data object Empty : PlanUiState
     data class Error(val kind: LoadErrorKind) : PlanUiState
-    data object NotConfigured : PlanUiState
 }

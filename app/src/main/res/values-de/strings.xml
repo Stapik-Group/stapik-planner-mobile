@@ -3,9 +3,6 @@
     <string name="app_name">StapikPlannerMobile</string>
     <string name="loading">Laden</string>
     <string name="settings">Einstellungen</string>
-    <string name="not_configured_message">Keine Verbindung konfiguriert.</string>
-    <string name="not_configured_button">Einstellungen öffnen</string>
-    <string name="error_not_found">Plan wurde auf dem Server nicht gefunden. Überprüfe die Verbindungseinstellungen.</string>
     <string name="empty_slot">Leer</string>
     <string name="day_load_label">Auslastung: %1$d%%</string>
     <string name="today_label">Heute</string>

@@ -22,6 +22,12 @@ class WeekdayMappingTest {
     }
 
     @Test
+    fun everyDayHasItsWireName() {
+        DayOfWeek.entries.forEach { day -> assertEquals(day, WeekdayMapping.fromWireValue(WeekdayMapping.toWireValue(day))) }
+        assertEquals("monday", WeekdayMapping.toWireValue(DayOfWeek.MONDAY))
+    }
+
+    @Test
     fun unknownNameMapsToNothing() {
         assertNull(WeekdayMapping.fromWireValue("someday"))
         assertNull(WeekdayMapping.fromWireValue(""))

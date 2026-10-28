@@ -1,14 +1,9 @@
 package pl.stapik.planner.ui.plan
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
@@ -21,8 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -32,12 +25,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 import pl.stapik.common.presentation.SyncAction
-import pl.stapik.common.presentation.isQuiet
+import pl.stapik.common.ui.sync.FirstConnectionDialog
 import pl.stapik.common.ui.sync.LoadErrorMessage
 import pl.stapik.common.ui.sync.SyncStatusBanner
 import pl.stapik.planner.R
 import pl.stapik.planner.ui.theme.LocalThemeColors
-import pl.stapik.planner.ui.theme.themedSurface
 import pl.stapik.planner.util.AppInfo
 
 @Composable
@@ -50,6 +42,7 @@ fun PlanPagerScreen(
     val viewModel: PlanViewModel = viewModel(factory = viewModelFactory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val syncState by viewModel.syncState.collectAsStateWithLifecycle()
+    val sourceChoice by viewModel.sourceChoice.collectAsStateWithLifecycle()
     val todayChecked by viewModel.todayChecked.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = DayPaging.initialPageFor(LocalDate.now())) { DayPaging.PAGE_COUNT }
     val coroutineScope = rememberCoroutineScope()
@@ -85,7 +78,7 @@ fun PlanPagerScreen(
             }
         )
 
-        if (state is PlanUiState.Success || state is PlanUiState.Empty) {
+        if (state is PlanUiState.Success) {
             SyncStatusBanner(
                 state = syncState,
                 onAction = { action ->
@@ -108,19 +101,6 @@ fun PlanPagerScreen(
         ) {
             when (val current = state) {
                 is PlanUiState.Loading -> CenteredMessage(stringResource(R.string.loading))
-
-                is PlanUiState.NotConfigured -> CenteredMessageWithAction(
-                    message = stringResource(R.string.not_configured_message),
-                    actionLabel = stringResource(R.string.not_configured_button),
-                    onAction = onNavigateToConnect
-                )
-
-                is PlanUiState.Empty ->
-                    if (syncState.isQuiet) {
-                        CenteredMessage(stringResource(R.string.error_not_found))
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize())
-                    }
 
                 is PlanUiState.Error -> LoadErrorMessage(
                     kind = current.kind,
@@ -145,6 +125,14 @@ fun PlanPagerScreen(
             }
         }
     }
+
+    sourceChoice?.let { choice ->
+        FirstConnectionDialog(
+            canKeepLocal = choice.canKeepLocal,
+            onChoose = viewModel::chooseSource,
+            onCancel = viewModel::dismissSourceChoice
+        )
+    }
 }
 
 @Composable
@@ -152,29 +140,5 @@ private fun CenteredMessage(text: String, modifier: Modifier = Modifier) {
     val themeColors = LocalThemeColors.current
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, color = themeColors.textDark)
-    }
-}
-
-@Composable
-private fun CenteredMessageWithAction(
-    message: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val themeColors = LocalThemeColors.current
-    Box(modifier = modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message, color = themeColors.textDark)
-            Spacer(modifier = Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .themedSurface(themeColors = themeColors, backgroundColor = themeColors.cellBackground, raised = true)
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            ) {
-                Text(actionLabel, color = themeColors.textDark, fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }
