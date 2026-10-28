@@ -14,6 +14,7 @@ import pl.stapik.planner.data.localstate.TodayChecksStorage
 import pl.stapik.planner.data.model.WeekdayMapping
 import pl.stapik.planner.data.repository.MissingConfigException
 import pl.stapik.planner.data.repository.PlannerFetchOutcome
+import pl.stapik.planner.data.repository.PlannerFetchResult
 import pl.stapik.planner.data.repository.PlannerRepository
 
 class PlanViewModel(
@@ -30,26 +31,10 @@ class PlanViewModel(
         viewModelScope.launch {
             val currentSuccess = _uiState.value as? PlanUiState.Success
             _uiState.value = currentSuccess?.copy(isRefreshing = true) ?: PlanUiState.Loading
-            when (val outcome = repository.fetchPlan()) {
-                is PlannerFetchOutcome.Fresh -> {
-                    _uiState.value = PlanUiState.Success(
-                        slotsPerDay = outcome.result.payload.settings.slots,
-                        daysByWeekday = outcome.result.payload.weekPlan.associateBy { WeekdayMapping.fromWireValue(it.weekday) },
-                        isStale = false,
-                        updatedAt = outcome.result.updatedAt
-                    )
-                }
-                is PlannerFetchOutcome.Cached -> {
-                    _uiState.value = PlanUiState.Success(
-                        slotsPerDay = outcome.cached.payload.settings.slots,
-                        daysByWeekday = outcome.cached.payload.weekPlan.associateBy { WeekdayMapping.fromWireValue(it.weekday) },
-                        isStale = true,
-                        updatedAt = outcome.cached.updatedAt
-                    )
-                }
-                is PlannerFetchOutcome.Failure -> {
-                    _uiState.value = mapError(outcome.cause)
-                }
+            _uiState.value = when (val outcome = repository.fetchPlan()) {
+                is PlannerFetchOutcome.Fresh -> outcome.result.toSuccessState(isStale = false)
+                is PlannerFetchOutcome.Cached -> outcome.result.toSuccessState(isStale = true)
+                is PlannerFetchOutcome.Failure -> mapError(outcome.cause)
             }
         }
     }
@@ -59,6 +44,13 @@ class PlanViewModel(
             todayChecksStorage.setChecked(date = LocalDate.now(), slotIndex = slotIndex, checked = checked)
         }
     }
+
+    private fun PlannerFetchResult.toSuccessState(isStale: Boolean) = PlanUiState.Success(
+        slotsPerDay = payload.settings.slots,
+        daysByWeekday = payload.weekPlan.associateBy { WeekdayMapping.fromWireValue(it.weekday) },
+        isStale = isStale,
+        updatedAt = updatedAt
+    )
 
     private fun mapError(error: Throwable): PlanUiState = when (error) {
         is MissingConfigException -> PlanUiState.NotConfigured

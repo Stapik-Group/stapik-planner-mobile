@@ -23,6 +23,3 @@ data class PlannerPayload(
     val activities: List<ActivityDef> = emptyList(),
     val weekPlan: List<DaySlotsWire> = emptyList()
 )
-
-@Serializable
-data class PlannerSyncEnvelope(val lastUpdate: String, val payload: PlannerPayload)
